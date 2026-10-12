@@ -1,0 +1,54 @@
+[
+  {
+    "orderId": "SB-2026-7411",
+    "customer": {
+      "fullName": "Ananya Sharma",
+      "phone": "9876543210",
+      "address": "Road No. 36, Jubilee Hills",
+      "city": "Hyderabad",
+      "pincode": "500033"
+    },
+    "items": [
+      {
+        "productId": "chocolate-truffle-cake",
+        "name": "Chocolate Truffle Cake",
+        "weightKg": 1,
+        "price": 1293,
+        "quantity": 1,
+        "isEggless": true,
+        "cakeMessage": "",
+        "flavour": "Belgian Dark Truffle"
+      }
+    ],
+    "deliveryDate": "2026-10-11",
+    "deliverySlot": "evening",
+    "paymentMethod": "ONLINE_UPI",
+    "paymentStatus": "PAID",
+    "subtotal": 1293,
+    "deliveryFee": 0,
+    "discount": 0,
+    "total": 1293,
+    "orderNotes": "",
+    "createdAt": "2026-10-11T22:49:00.078Z",
+    "status": "Preparing Your Order",
+    "razorpayOrderId": "order_sandbox_1791758940078_6768",
+    "statusHistory": [
+      {
+        "status": "Order Placed",
+        "timestamp": "2026-10-11T22:49:00.078Z",
+        "note": "Awaiting UPI / online payment confirmation"
+      },
+      {
+        "status": "Order Confirmed",
+        "timestamp": "2026-10-11T22:49:04.447Z",
+        "note": "Payment verified via Razorpay UPI (pay_test_99210)"
+      },
+      {
+        "status": "Preparing Your Order",
+        "timestamp": "2026-10-11T22:49:42.368Z",
+        "note": "Sponge baked, piping chocolate rosettes"
+      }
+    ],
+    "transactionId": "pay_test_99210"
+  }
+]

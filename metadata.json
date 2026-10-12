@@ -1,0 +1,6 @@
+{
+  "name": "Sweet Bliss - Premium AI Bakery",
+  "description": "Artisan celebration cakes, pastries, custom designs, and AI cake recommendations for every occasion. Freshly baked with love and the finest ingredients.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
