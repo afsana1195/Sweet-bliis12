@@ -56,6 +56,15 @@ export default function App() {
     }
   });
 
+  // Google Maps Platform Quota Exceeded state
+  const [gmpQuotaExceeded, setGmpQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    const handleQuotaExceeded = () => setGmpQuotaExceeded(true);
+    window.addEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+    return () => window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+  }, []);
+
   const [recentOrders, setRecentOrders] = useState<PlacedOrder[]>(() => {
     try {
       const saved = localStorage.getItem('sb_orders');
@@ -189,6 +198,24 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FFF9F9] text-stone-900 selection:bg-rose-200 selection:text-rose-900 font-sans">
+      {/* Google Maps Quota Exceeded Banner */}
+      {gmpQuotaExceeded && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+          <span>
+            Google Maps Platform quota reached. If you are the app owner, visit{' '}
+            <a
+              href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold text-amber-950 hover:text-amber-800"
+            >
+              maps developer site
+            </a>{' '}
+            for instructions to update your account.
+          </span>
+        </div>
+      )}
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#881337] text-white text-xs sm:text-sm font-semibold px-5 py-2.5 rounded-full shadow-xl border border-rose-300 animate-in fade-in slide-in-from-bottom-4 duration-200 flex items-center gap-2">
@@ -406,6 +433,11 @@ export default function App() {
           onSelectOrder={(ord) => {
             setPlacedOrder(ord);
             setCurrentRoute('order-confirmation');
+          }}
+          onNavigateToDashboard={() => {
+            setIsAccountOpen(false);
+            setCurrentRoute('admin');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
         />
       )}

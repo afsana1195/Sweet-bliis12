@@ -96,6 +96,17 @@ export const Footer: React.FC<FooterProps> = ({ onRouteChange, onSelectCategory 
                   Contact & Orders
                 </button>
               </li>
+              <li>
+                <button
+                  onClick={() => handleNav('admin')}
+                  className="hover:text-rose-300 transition-colors cursor-pointer text-amber-300 font-semibold flex items-center gap-1.5"
+                >
+                  <span>📊 Store Dashboard & Reports</span>
+                  <span className="bg-amber-400/20 text-amber-300 text-[10px] px-1.5 py-0.2 rounded-full border border-amber-400/30">
+                    Admin
+                  </span>
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -172,8 +183,11 @@ export const Footer: React.FC<FooterProps> = ({ onRouteChange, onSelectCategory 
             <button onClick={() => handleNav('terms')} className="hover:text-rose-300 transition-colors cursor-pointer">
               Terms & Conditions
             </button>
-            <button onClick={() => handleNav('admin')} className="hover:text-rose-300 transition-colors cursor-pointer text-stone-500">
-              Bakery Manager
+            <button
+              onClick={() => handleNav('admin')}
+              className="hover:text-amber-300 text-stone-300 transition-colors cursor-pointer font-semibold flex items-center gap-1"
+            >
+              <span>📊 Store Dashboard (Admin)</span>
             </button>
             <span className="flex items-center gap-1 text-rose-300">
               <span>Made with</span>

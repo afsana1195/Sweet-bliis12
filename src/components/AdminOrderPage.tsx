@@ -1,6 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, Search, RefreshCw, Filter, CheckCircle2, Truck, ChefHat, Package, Sparkles, XCircle, Clock, ShieldCheck, ChevronRight, AlertCircle } from 'lucide-react';
+import {
+  Lock,
+  Search,
+  RefreshCw,
+  Filter,
+  CheckCircle2,
+  Truck,
+  ChefHat,
+  Package,
+  Sparkles,
+  XCircle,
+  Clock,
+  ShieldCheck,
+  ChevronRight,
+  AlertCircle,
+  BarChart3,
+  ListOrdered,
+  FileSpreadsheet,
+  Download,
+} from 'lucide-react';
 import { PlacedOrder, PageRoute } from '../types.ts';
+import { AdminPerformanceDashboard } from './AdminPerformanceDashboard.tsx';
+import { AdminReportExportModal } from './AdminReportExportModal.tsx';
 
 interface AdminOrderPageProps {
   onNavigate: (route: PageRoute) => void;
@@ -16,8 +37,9 @@ const STAGES = [
 ];
 
 export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) => {
+  const [adminView, setAdminView] = useState<'analytics' | 'queue'>('analytics');
   const [adminKey, setAdminKey] = useState(() => {
-    return localStorage.getItem('sb_admin_key') || '';
+    return localStorage.getItem('sb_admin_key') || 'sweetbliss-admin-2026';
   });
   const [keyInput, setKeyInput] = useState(adminKey || 'sweetbliss-admin-2026');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -32,6 +54,7 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) =>
   const [cancelReason, setCancelReason] = useState('');
   const [statusNote, setStatusNote] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
 
   const fetchOrders = async (key: string) => {
     setLoading(true);
@@ -160,7 +183,20 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) =>
               className="w-full py-3 rounded-xl bg-[#881337] hover:bg-[#9F1239] text-white text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2"
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>{loading ? 'Authenticating...' : 'Unlock Admin Order Portal'}</span>
+              <span>{loading ? 'Authenticating...' : 'Unlock Admin Dashboard & Orders'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setKeyInput('sweetbliss-admin-2026');
+                setAdminKey('sweetbliss-admin-2026');
+                fetchOrders('sweetbliss-admin-2026');
+              }}
+              className="w-full py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-[#881337] text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-rose-200"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-rose-600" />
+              <span>Quick 1-Click Demo Login</span>
             </button>
           </form>
 
@@ -199,7 +235,14 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) =>
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto">
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => setExportModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-[#881337] hover:bg-[#9F1239] text-white text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer transition-all"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-rose-200" />
+              <span>Download CSV Reports</span>
+            </button>
             <button
               onClick={() => fetchOrders(adminKey)}
               className="px-3.5 py-2 rounded-xl bg-white border border-rose-200 text-xs font-semibold text-[#881337] hover:bg-rose-50 flex items-center gap-1.5 shadow-2xs cursor-pointer"
@@ -226,35 +269,81 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) =>
           </div>
         )}
 
-        {/* Stats Summary Strip */}
-        {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
-              <span className="text-[11px] text-stone-500 block">Total Orders</span>
-              <span className="text-xl font-bold text-stone-900 tabular-nums">{stats.total}</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
-              <span className="text-[11px] text-stone-500 block">Confirmed</span>
-              <span className="text-xl font-bold text-emerald-600 tabular-nums">{stats.confirmed}</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
-              <span className="text-[11px] text-stone-500 block">Preparing</span>
-              <span className="text-xl font-bold text-[#881337] tabular-nums">{stats.preparing}</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
-              <span className="text-[11px] text-stone-500 block">Ready / Dispatch</span>
-              <span className="text-xl font-bold text-amber-600 tabular-nums">{stats.ready}</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
-              <span className="text-[11px] text-stone-500 block">Out for Delivery</span>
-              <span className="text-xl font-bold text-blue-600 tabular-nums">{stats.outForDelivery}</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
-              <span className="text-[11px] text-stone-500 block">Delivered</span>
-              <span className="text-xl font-bold text-emerald-700 tabular-nums">{stats.delivered}</span>
-            </div>
+        {/* View Switcher: Order Performance Analytics vs Kitchen Order Queue */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-rose-100 shadow-2xs">
+            <button
+              onClick={() => setAdminView('analytics')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                adminView === 'analytics'
+                  ? 'bg-[#881337] text-white shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Order Performance & Trends</span>
+            </button>
+            <button
+              onClick={() => setAdminView('queue')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                adminView === 'queue'
+                  ? 'bg-[#881337] text-white shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+              }`}
+            >
+              <ListOrdered className="w-4 h-4" />
+              <span>Kitchen Queue & Status ({orders.length})</span>
+            </button>
+          </div>
+
+          <div className="text-xs text-stone-500 font-medium">
+            Logged in as Bakery Owner • Real-Time Database Sync
+          </div>
+        </div>
+
+        {/* ================= VIEW 1: RECHARTS ORDER PERFORMANCE DASHBOARD ================= */}
+        {adminView === 'analytics' && (
+          <div className="animate-in fade-in duration-200">
+            <AdminPerformanceDashboard
+              orders={orders}
+              stats={stats}
+              onOpenExportModal={() => setExportModalOpen(true)}
+            />
           </div>
         )}
+
+        {/* ================= VIEW 2: KITCHEN ORDER MANAGEMENT QUEUE ================= */}
+        {adminView === 'queue' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* Stats Summary Strip */}
+            {stats && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 block">Total Orders</span>
+                  <span className="text-xl font-bold text-stone-900 tabular-nums">{stats.total}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 block">Confirmed</span>
+                  <span className="text-xl font-bold text-emerald-600 tabular-nums">{stats.confirmed}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 block">Preparing</span>
+                  <span className="text-xl font-bold text-[#881337] tabular-nums">{stats.preparing}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 block">Ready / Dispatch</span>
+                  <span className="text-xl font-bold text-amber-600 tabular-nums">{stats.ready}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 block">Out for Delivery</span>
+                  <span className="text-xl font-bold text-blue-600 tabular-nums">{stats.outForDelivery}</span>
+                </div>
+                <div className="p-3.5 rounded-2xl bg-white border border-rose-100 shadow-2xs">
+                  <span className="text-[11px] text-stone-500 block">Delivered</span>
+                  <span className="text-xl font-bold text-emerald-700 tabular-nums">{stats.delivered}</span>
+                </div>
+              </div>
+            )}
 
         {/* Filter and Search Bar */}
         <div className="bg-white p-4 rounded-2xl border border-rose-100 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
@@ -274,18 +363,29 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) =>
             ))}
           </div>
 
-          <div className="relative w-full md:w-64">
-            <input
-              type="text"
-              placeholder="Search by ID, name, phone..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') fetchOrders(adminKey);
-              }}
-              className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-stone-200 focus:outline-none focus:border-rose-400"
-            />
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-stone-400" />
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-64">
+              <input
+                type="text"
+                placeholder="Search by ID, name, phone..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') fetchOrders(adminKey);
+                }}
+                className="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-stone-200 focus:outline-none focus:border-rose-400"
+              />
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-stone-400" />
+            </div>
+
+            <button
+              onClick={() => setExportModalOpen(true)}
+              className="px-3 py-2 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-[#881337] text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 shadow-2xs"
+              title="Download Order Report CSV for Accounting & Kitchen Planning"
+            >
+              <Download className="w-3.5 h-3.5 text-[#881337]" />
+              <span className="hidden sm:inline">Export CSV</span>
+            </button>
           </div>
         </div>
 
@@ -462,6 +562,17 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) =>
           </div>
         )}
       </div>
+    )}
+
+      {/* Order Reports & CSV Export Modal */}
+      <AdminReportExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        orders={orders}
+        currentStatusFilter={statusFilter}
+        adminKey={adminKey}
+      />
     </div>
-  );
+  </div>
+);
 };

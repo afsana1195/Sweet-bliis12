@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Package, Clock, CheckCircle2, Truck, ChefHat, Sparkles, ChevronRight, ArrowLeft } from 'lucide-react';
+import { X, User, Package, Clock, CheckCircle2, Truck, ChefHat, Sparkles, ChevronRight, ArrowLeft, BarChart3 } from 'lucide-react';
 import { PlacedOrder } from '../types.ts';
 
 interface AccountModalProps {
@@ -7,6 +7,7 @@ interface AccountModalProps {
   onClose: () => void;
   recentOrders: PlacedOrder[];
   onSelectOrder: (order: PlacedOrder) => void;
+  onNavigateToDashboard?: () => void;
 }
 
 const ORDER_STEPS = [
@@ -21,6 +22,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   onClose,
   recentOrders,
   onSelectOrder,
+  onNavigateToDashboard,
 }) => {
   const [selectedTrackOrderId, setSelectedTrackOrderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'orders' | 'profile'>('orders');
@@ -305,6 +307,32 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Quick Shortcut to Store Performance Dashboard */}
+        {onNavigateToDashboard && (
+          <div className="pt-3 border-t border-rose-100">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200/80 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#881337] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <BarChart3 className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-[#881337]">Bakery Owner / Admin?</p>
+                  <p className="text-[10px] text-stone-500">View daily sales charts, order queue & CSV reports</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  onClose();
+                  onNavigateToDashboard();
+                }}
+                className="px-3 py-1.5 rounded-xl bg-[#881337] hover:bg-[#9F1239] text-white text-[11px] font-bold transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
+              >
+                Open Dashboard →
+              </button>
+            </div>
           </div>
         )}
       </div>

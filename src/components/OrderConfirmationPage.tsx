@@ -89,8 +89,8 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
             </div>
           </div>
 
-          {/* Delivery & Recipient Information */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs bg-stone-50/70 p-5 rounded-2xl border border-stone-200">
+          {/* Delivery, Recipient & Payment Information */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-stone-50/70 p-5 rounded-2xl border border-stone-200">
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 font-bold text-stone-800">
                 <Clock className="w-4 h-4 text-[#881337]" />
@@ -105,9 +105,31 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
                 <MapPin className="w-4 h-4 text-[#881337]" />
                 <span>Delivery Address</span>
               </div>
-              <p className="text-stone-700 font-medium">{order.customer.address}</p>
+              <p className="text-stone-700 font-medium truncate">{order.customer.address}</p>
               <p className="text-stone-500">{order.customer.city} - {order.customer.pincode}</p>
               <p className="text-stone-500">Contact: {order.customer.phone}</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5 font-bold text-stone-800">
+                <Sparkles className="w-4 h-4 text-[#881337]" />
+                <span>Payment & Verification</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  order.paymentStatus === 'PAID'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                }`}>
+                  {order.paymentStatus}
+                </span>
+                <span className="font-semibold text-stone-700 truncate">{order.paymentMethod}</span>
+              </div>
+              {order.transactionId && (
+                <p className="text-[10px] text-stone-500 font-mono truncate">
+                  Ref: {order.transactionId}
+                </p>
+              )}
             </div>
           </div>
 
@@ -165,10 +187,11 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
           <div className="pt-4 flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => onNavigate('track-order')}
-              className="flex-1 py-3 px-4 rounded-xl bg-[#881337] hover:bg-[#9F1239] text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors"
+              className="flex-1 py-3.5 px-4 rounded-xl bg-gradient-to-r from-[#881337] to-[#9F1239] hover:from-[#9F1239] hover:to-[#881337] text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all hover:scale-[1.01]"
             >
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <Clock className="w-4 h-4" />
-              <span>Track Order Live (6 Stages)</span>
+              <span>Live Delivery Tracking (Radar & Rider GPS)</span>
             </button>
 
             <a

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, ShoppingBag, User, Menu, X, Heart, Sparkles, MessageCircle } from 'lucide-react';
+import { Search, ShoppingBag, User, Menu, X, Heart, Sparkles, MessageCircle, BarChart3 } from 'lucide-react';
 import { PageRoute } from '../types.ts';
 import { CakeProduct, BUSINESS_CONFIG } from '../data/bakeryData.ts';
 import { getWhatsAppInquiryUrl } from '../utils/whatsapp.ts';
@@ -125,11 +125,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
           <button
             onClick={() => handleNav('track-order')}
-            className={`transition-colors hover:text-[#9F1239] cursor-pointer ${
+            className={`transition-colors hover:text-[#9F1239] cursor-pointer flex items-center gap-1.5 ${
               currentRoute === 'track-order' ? 'text-[#881337] font-semibold underline underline-offset-8 decoration-2 decoration-rose-400' : ''
             }`}
           >
-            Track Order
+            <span>Track Order</span>
+            <span className="flex items-center gap-1 bg-rose-100 text-[#9F1239] text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live
+            </span>
           </button>
           <button
             onClick={() => handleNav('about')}
@@ -146,6 +150,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             Contact
+          </button>
+          <button
+            onClick={() => handleNav('admin')}
+            className={`transition-colors hover:text-[#9F1239] cursor-pointer flex items-center gap-1.5 ${
+              currentRoute === 'admin' ? 'text-[#881337] font-semibold underline underline-offset-8 decoration-2 decoration-rose-400' : ''
+            }`}
+          >
+            <BarChart3 className="w-4 h-4 text-[#881337]" />
+            <span>Dashboard</span>
+            <span className="bg-rose-100 text-[#9F1239] text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              Admin
+            </span>
           </button>
         </nav>
 
@@ -173,8 +189,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
 
-        {/* Right Actions: AI Assistant, Wishlist, Account, Cart */}
+        {/* Right Actions: Dashboard, AI Assistant, Wishlist, Account, Cart */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Dashboard Button */}
+          <button
+            onClick={() => handleNav('admin')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all shadow-2xs cursor-pointer group ${
+              currentRoute === 'admin'
+                ? 'bg-[#881337] text-white border-[#881337] shadow-sm'
+                : 'bg-rose-100/70 hover:bg-rose-200/90 text-[#881337] border-rose-300/80'
+            }`}
+            title="Store Performance Dashboard & Live Analytics"
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-rose-700 group-hover:scale-110 transition-transform" />
+            <span className="font-bold">Dashboard</span>
+            <span className="hidden sm:inline bg-white/80 text-[#881337] text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+              Live
+            </span>
+          </button>
+
           {/* AI Cake Assistant Pill Button */}
           <button
             onClick={onOpenAiAssistant}
@@ -293,11 +326,29 @@ export const Navbar: React.FC<NavbarProps> = ({
               Contact & Store Hours
             </button>
             <button
+              onClick={() => handleNav('admin')}
+              className={`text-left px-3.5 py-2.5 rounded-xl font-bold flex items-center justify-between transition-colors shadow-2xs ${
+                currentRoute === 'admin'
+                  ? 'bg-[#881337] text-white'
+                  : 'bg-rose-100 text-[#881337] hover:bg-rose-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-4.5 h-4.5 text-current" />
+                <span className="text-sm">Store Performance Dashboard</span>
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                currentRoute === 'admin' ? 'bg-white text-[#881337]' : 'bg-[#881337] text-white'
+              }`}>
+                Admin & Reports
+              </span>
+            </button>
+            <button
               onClick={() => {
                 onOpenAiAssistant();
                 setMobileMenuOpen(false);
               }}
-              className="text-left px-3 py-2.5 rounded-lg bg-rose-100/80 text-[#881337] font-semibold flex items-center gap-2"
+              className="text-left px-3 py-2.5 rounded-lg bg-rose-50 text-[#881337] font-semibold flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4 text-rose-600" />
               <span>Ask AI Cake Assistant</span>

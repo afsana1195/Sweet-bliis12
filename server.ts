@@ -509,7 +509,7 @@ app.post('/api/payment/webhook', (req: Request, res: Response) => {
 // -------------------------------------------------------------
 app.post('/api/orders', (req: Request, res: Response) => {
   try {
-    const { customer, items, deliveryDate, deliverySlot, paymentMethod, orderNotes } = req.body;
+    const { customer, items, deliveryDate, deliverySlot, paymentMethod, orderNotes, transactionId } = req.body;
 
     if (!customer?.fullName || !customer?.phone || !customer?.address) {
       return res.status(400).json({ error: 'Customer name, phone, and delivery address are required' });
@@ -523,6 +523,7 @@ app.post('/api/orders', (req: Request, res: Response) => {
     const orderId = `SB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const isCOD = paymentMethod === 'COD';
+    const txnId = transactionId || (isCOD ? undefined : `TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`);
 
     const newOrder: StoredOrder = {
       orderId,
@@ -530,8 +531,9 @@ app.post('/api/orders', (req: Request, res: Response) => {
       items: financials.validatedItems,
       deliveryDate: deliveryDate || new Date().toISOString().split('T')[0],
       deliverySlot: deliverySlot || 'evening',
-      paymentMethod: isCOD ? 'COD' : paymentMethod || 'ONLINE_UPI',
+      paymentMethod: paymentMethod || (isCOD ? 'COD' : 'ONLINE_UPI'),
       paymentStatus: isCOD ? 'PENDING' : 'PAID',
+      transactionId: txnId,
       subtotal: financials.subtotal,
       deliveryFee: financials.deliveryFee,
       discount: financials.discount,
@@ -543,12 +545,16 @@ app.post('/api/orders', (req: Request, res: Response) => {
         {
           status: 'Order Placed',
           timestamp: new Date().toISOString(),
-          note: isCOD ? 'Cash on Delivery order booked' : 'Order placed',
+          note: isCOD
+            ? 'Cash on Delivery order booked'
+            : `Order placed via ${paymentMethod || 'Online Payment'}`,
         },
         {
           status: 'Order Confirmed',
           timestamp: new Date().toISOString(),
-          note: isCOD ? 'Confirmed for doorstep cash/UPI payment' : 'Confirmed',
+          note: isCOD
+            ? 'Confirmed for doorstep cash/UPI payment'
+            : `Payment of ₹${financials.total} verified successfully (${txnId})`,
         },
       ],
     };
@@ -608,6 +614,80 @@ app.get('/api/orders/track', (req: Request, res: Response) => {
   });
 });
 
+// GET latest order for seamless 1-click live tracking experience
+app.get('/api/orders/latest', (_req: Request, res: Response) => {
+  if (ordersStore.length === 0) {
+    return res.status(404).json({ error: 'No orders available' });
+  }
+  // Return the most recently placed order (first or last by date)
+  const sorted = [...ordersStore].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  res.json({
+    success: true,
+    order: sorted[0],
+  });
+});
+
+// Simulation endpoint for realistic Zomato/Swiggy-style delivery tracking progress
+app.post('/api/orders/:orderId/simulate-stage', (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const { targetStage, note } = req.body;
+
+  const order = ordersStore.find((o) => o.orderId.toUpperCase() === orderId.toUpperCase());
+  if (!order) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+
+  const validStages = [
+    'Order Placed',
+    'Order Confirmed',
+    'Preparing Your Order',
+    'Ready for Dispatch',
+    'Out for Delivery',
+    'Delivered',
+  ];
+
+  const stageIndex = validStages.indexOf(order.status);
+  let nextStage = targetStage;
+
+  if (!nextStage) {
+    // Auto-advance to next stage or loop back if already delivered
+    if (stageIndex >= 0 && stageIndex < validStages.length - 1) {
+      nextStage = validStages[stageIndex + 1];
+    } else {
+      nextStage = validStages[1]; // Reset back to Confirmed to re-experience
+    }
+  }
+
+  const stageDescriptions: Record<string, string> = {
+    'Order Placed': 'Order received in bakery system',
+    'Order Confirmed': 'Bakery manager accepted order & verified ingredients',
+    'Preparing Your Order': 'Executive Chef is hand-whipping cream & piping rosettes',
+    'Ready for Dispatch': 'Quality check 100% passed. Packed in temperature-controlled cold box',
+    'Out for Delivery': 'Delivery Partner Rahul Sharma picked up package on scooter (Live GPS active)',
+    'Delivered': 'Rider arrived at customer doorstep. Celebrations unlocked!',
+  };
+
+  order.status = nextStage;
+  if (!order.statusHistory) {
+    order.statusHistory = [];
+  }
+  order.statusHistory.push({
+    status: nextStage,
+    timestamp: new Date().toISOString(),
+    note: note || stageDescriptions[nextStage] || `Status updated to ${nextStage}`,
+  });
+
+  saveOrders(ordersStore);
+
+  res.json({
+    success: true,
+    message: `Order advanced to ${nextStage}`,
+    order,
+  });
+});
+
 // -------------------------------------------------------------
 // 5. PROTECTED BAKERY ADMIN MANAGEMENT API
 // -------------------------------------------------------------
@@ -652,6 +732,215 @@ app.get('/api/admin/orders', verifyAdminAuth, (req: Request, res: Response) => {
       cancelled: ordersStore.filter((o) => o.status === 'Cancelled').length,
     },
   });
+});
+
+// CSV Export Endpoint for Store Accounting and Kitchen Inventory
+app.get('/api/admin/orders/export-csv', verifyAdminAuth, (req: Request, res: Response) => {
+  try {
+    const { type = 'accounting', status, search } = req.query;
+    let list = [...ordersStore];
+
+    if (status && status !== 'all') {
+      list = list.filter((o) => o.status.toLowerCase() === (status as string).toLowerCase());
+    }
+
+    if (search) {
+      const q = (search as string).toLowerCase().trim();
+      list = list.filter(
+        (o) =>
+          o.orderId.toLowerCase().includes(q) ||
+          o.customer.fullName.toLowerCase().includes(q) ||
+          o.customer.phone.includes(q)
+      );
+    }
+
+    const escapeCSV = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val);
+      if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return `"${str}"`;
+    };
+
+    let csvContent = '';
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    if (type === 'inventory') {
+      // Item-level kitchen production & ingredient batch report
+      const headers = [
+        'Order ID',
+        'Delivery Date',
+        'Delivery Slot',
+        'Item Name',
+        'Product SKU',
+        'Unit Weight (kg)',
+        'Quantity',
+        'Total Weight (kg)',
+        'Dietary Type',
+        'Selected Flavour',
+        'Message on Cake',
+        'Status',
+        'Customer Name',
+        'Customer Phone',
+        'Special Kitchen Notes',
+        'Est. Flour Needed (g)',
+        'Est. Sugar Needed (g)',
+        'Est. Dairy/Cream Needed (g)',
+      ];
+      const rows: string[][] = [];
+      list.forEach((o) => {
+        (o.items || []).forEach((item) => {
+          const totWeight = (item.weightKg || 0.5) * (item.quantity || 1);
+          rows.push([
+            o.orderId,
+            o.deliveryDate || '',
+            o.deliverySlot || '',
+            item.name,
+            item.productId || '',
+            String(item.weightKg || 0.5),
+            String(item.quantity || 1),
+            totWeight.toFixed(2),
+            item.isEggless ? '100% Eggless' : 'Regular (Egg)',
+            item.flavour || 'Chef Special',
+            item.cakeMessage || '(No message)',
+            o.status || '',
+            o.customer?.fullName || '',
+            o.customer?.phone || '',
+            o.orderNotes || '',
+            String(Math.round(totWeight * 300)),
+            String(Math.round(totWeight * 200)),
+            String(Math.round(totWeight * 250)),
+          ]);
+        });
+      });
+      csvContent = `\uFEFF${headers.map(escapeCSV).join(',')}\r\n${rows
+        .map((r) => r.map(escapeCSV).join(','))
+        .join('\r\n')}`;
+    } else if (type === 'master') {
+      // Complete 24-column order database export
+      const headers = [
+        'Order ID',
+        'Booking Timestamp',
+        'Customer Name',
+        'Phone',
+        'Email',
+        'Delivery Address',
+        'City',
+        'Pincode',
+        'Delivery Date',
+        'Delivery Slot',
+        'Items Ordered Summary',
+        'Subtotal (INR)',
+        'Delivery Fee (INR)',
+        'Discount (INR)',
+        'Total Amount (INR)',
+        'Payment Method',
+        'Payment Status',
+        'Transaction ID',
+        'Order Status',
+        'Cancellation Reason',
+        'Customer Order Notes',
+      ];
+      const rows = list.map((o) => {
+        const itemsSummary = (o.items || [])
+          .map((i) => `${i.quantity}x ${i.name} (${i.weightKg}kg)`)
+          .join('; ');
+        return [
+          o.orderId,
+          o.createdAt || '',
+          o.customer?.fullName || '',
+          o.customer?.phone || '',
+          o.customer?.email || '',
+          o.customer?.address || '',
+          o.customer?.city || 'Hyderabad',
+          o.customer?.pincode || '',
+          o.deliveryDate || '',
+          o.deliverySlot || '',
+          itemsSummary,
+          String(o.subtotal || 0),
+          String(o.deliveryFee || 0),
+          String(o.discount || 0),
+          String(o.total || 0),
+          o.paymentMethod || 'ONLINE_UPI',
+          o.paymentStatus || 'PAID',
+          o.transactionId || o.razorpayOrderId || 'N/A',
+          o.status || '',
+          o.cancellationReason || '',
+          o.orderNotes || '',
+        ];
+      });
+      csvContent = `\uFEFF${headers.map(escapeCSV).join(',')}\r\n${rows
+        .map((r) => r.map(escapeCSV).join(','))
+        .join('\r\n')}`;
+    } else {
+      // Default: Accounting & Financial Ledger Report
+      const headers = [
+        'Order ID',
+        'Booking Date',
+        'Customer Name',
+        'Phone Number',
+        'Email Address',
+        'Delivery Date',
+        'Delivery Slot',
+        'Delivery City',
+        'Pincode',
+        'Items Summary',
+        'Total Units',
+        'Subtotal (INR)',
+        'Delivery Fee (INR)',
+        'Discount (INR)',
+        'Net Revenue (INR)',
+        'Payment Method',
+        'Payment Status',
+        'Transaction Reference',
+        'Fulfillment Status',
+        'Special Notes',
+      ];
+      const rows = list.map((o) => {
+        const bookingDate = (o.createdAt || '').split('T')[0];
+        const itemsSummary = (o.items || [])
+          .map((i) => `${i.quantity}x ${i.name} (${i.weightKg}kg${i.isEggless ? ', Eggless' : ''})`)
+          .join(' | ');
+        const totalUnits = (o.items || []).reduce((acc, i) => acc + (i.quantity || 0), 0);
+        return [
+          o.orderId,
+          bookingDate,
+          o.customer?.fullName || '',
+          o.customer?.phone || '',
+          o.customer?.email || '',
+          o.deliveryDate || '',
+          o.deliverySlot || '',
+          o.customer?.city || 'Hyderabad',
+          o.customer?.pincode || '',
+          itemsSummary,
+          String(totalUnits),
+          String(o.subtotal || 0),
+          String(o.deliveryFee || 0),
+          String(o.discount || 0),
+          String(o.total || 0),
+          o.paymentMethod || 'ONLINE_UPI',
+          o.paymentStatus || 'PAID',
+          o.transactionId || o.razorpayOrderId || 'N/A',
+          o.status || '',
+          o.orderNotes || '',
+        ];
+      });
+      csvContent = `\uFEFF${headers.map(escapeCSV).join(',')}\r\n${rows
+        .map((r) => r.map(escapeCSV).join(','))
+        .join('\r\n')}`;
+    }
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="sweetbliss_${type}_report_${todayStr}.csv"`
+    );
+    res.send(csvContent);
+  } catch (err: any) {
+    console.error('CSV Export error:', err);
+    res.status(500).json({ error: 'Failed to generate CSV export' });
+  }
 });
 
 app.patch('/api/admin/orders/:orderId/status', verifyAdminAuth, (req: Request, res: Response) => {
