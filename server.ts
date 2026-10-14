@@ -20,6 +20,8 @@ app.use(express.json({ limit: '10mb' }));
 // Persistent storage file paths
 const ORDERS_FILE = path.join(__dirname, 'orders_store.json');
 const CUSTOM_CAKES_FILE = path.join(__dirname, 'custom_cakes_store.json');
+const SUBSCRIBERS_FILE = path.join(__dirname, 'newsletter_subscribers.json');
+const USERS_FILE = path.join(__dirname, 'users_store.json');
 
 export interface StoredOrder {
   orderId: string;
@@ -132,8 +134,94 @@ function saveCustomCakes(cakes: StoredCustomCake[]) {
   }
 }
 
+export interface StoredSubscriber {
+  email: string;
+  subscribedAt: string;
+  promoCode: string;
+  source: string;
+}
+
+function loadSubscribers(): StoredSubscriber[] {
+  try {
+    if (fs.existsSync(SUBSCRIBERS_FILE)) {
+      const data = fs.readFileSync(SUBSCRIBERS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.warn('Could not read newsletter subscribers from disk:', err);
+  }
+  return [];
+}
+
+function saveSubscribers(subscribers: StoredSubscriber[]) {
+  try {
+    fs.writeFileSync(SUBSCRIBERS_FILE, JSON.stringify(subscribers, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not save newsletter subscribers to disk:', err);
+  }
+}
+
+export interface StoredUser {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  passwordHash: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  memberTier: 'Bronze' | 'Silver' | 'Gold' | 'VIP';
+  loyaltyPoints: number;
+  createdAt: string;
+}
+
+function sanitizeUser(user: StoredUser) {
+  const { passwordHash, ...rest } = user;
+  return rest;
+}
+
+function loadUsers(): StoredUser[] {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const data = fs.readFileSync(USERS_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (err) {
+    console.warn('Could not read users from disk:', err);
+  }
+
+  // Pre-seed default demo customer so visitors can test 1-click login
+  const defaultDemoUser: StoredUser = {
+    id: 'user_demo_101',
+    name: 'Priya Sharma',
+    email: 'priya@example.com',
+    phone: '9876543210',
+    passwordHash: crypto.createHash('sha256').update('demo123').digest('hex'),
+    address: 'Plot 42, Road No. 36, Jubilee Hills',
+    city: 'Hyderabad',
+    pincode: '500033',
+    memberTier: 'Gold',
+    loyaltyPoints: 340,
+    createdAt: new Date().toISOString(),
+  };
+
+  saveUsers([defaultDemoUser]);
+  return [defaultDemoUser];
+}
+
+function saveUsers(users: StoredUser[]) {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not save users to disk:', err);
+  }
+}
+
 const ordersStore: StoredOrder[] = loadOrders();
 const customCakeStore: StoredCustomCake[] = loadCustomCakes();
+const subscribersStore: StoredSubscriber[] = loadSubscribers();
+const usersStore: StoredUser[] = loadUsers();
 
 // Calculation Helper: calculate amounts strictly on server in INR & Paise
 function calculateOrderFinancials(items: any[], deliverySlot: string) {
@@ -505,24 +593,330 @@ app.post('/api/payment/webhook', (req: Request, res: Response) => {
 });
 
 // -------------------------------------------------------------
+// 2B. NEWSLETTER SUBSCRIPTION & PROMOTIONS API
+// -------------------------------------------------------------
+app.post('/api/newsletter/subscribe', (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string' || !email.includes('@') || !email.includes('.')) {
+      return res.status(400).json({ error: 'Please enter a valid email address.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const existing = subscribersStore.find((s) => s.email.toLowerCase() === cleanEmail);
+
+    if (existing) {
+      return res.json({
+        success: true,
+        alreadySubscribed: true,
+        promoCode: existing.promoCode || 'SWEETBLISS10',
+        message: 'You are already on our VIP list! Use promo code SWEETBLISS10 for 10% off your next order.',
+      });
+    }
+
+    const newSub: StoredSubscriber = {
+      email: cleanEmail,
+      subscribedAt: new Date().toISOString(),
+      promoCode: 'SWEETBLISS10',
+      source: 'footer_newsletter',
+    };
+
+    subscribersStore.unshift(newSub);
+    saveSubscribers(subscribersStore);
+
+    res.status(201).json({
+      success: true,
+      message: 'Welcome to Sweet Bliss VIP! Your 10% promotional discount code is SWEETBLISS10.',
+      promoCode: 'SWEETBLISS10',
+      subscriber: newSub,
+    });
+  } catch (err) {
+    console.error('Newsletter subscribe error:', err);
+    res.status(500).json({ error: 'Failed to process newsletter subscription' });
+  }
+});
+
+app.get('/api/admin/subscribers', verifyAdminAuth, (_req: Request, res: Response) => {
+  res.json({
+    subscribers: subscribersStore,
+    count: subscribersStore.length,
+  });
+});
+
+// -------------------------------------------------------------
+// 2C. CUSTOMER AUTHENTICATION API (Sign Up & Login)
+// -------------------------------------------------------------
+const customerSessions = new Map<string, string>();
+
+function getAuthUser(req: Request): StoredUser | null {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+  const userId = token ? customerSessions.get(token) : null;
+  if (userId) {
+    const user = usersStore.find((u) => u.id === userId);
+    if (user) return user;
+  }
+  const directId = req.headers['x-user-id'] as string;
+  if (directId) {
+    const user = usersStore.find((u) => u.id === directId);
+    if (user) return user;
+  }
+  return null;
+}
+
+// Sign Up / Registration
+app.post('/api/auth/signup', (req: Request, res: Response) => {
+  try {
+    const { name, email, phone, password, address, city, pincode } = req.body;
+
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      return res.status(400).json({ error: 'Please enter your full name.' });
+    }
+
+    if (!email || typeof email !== 'string' || !email.includes('@') || !email.includes('.')) {
+      return res.status(400).json({ error: 'Please enter a valid email address.' });
+    }
+
+    if (!phone || typeof phone !== 'string' || phone.replace(/\D/g, '').length < 10) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+
+    const existingEmail = usersStore.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existingEmail) {
+      return res.status(409).json({ error: 'An account with this email address already exists. Please log in.' });
+    }
+
+    const existingPhone = usersStore.find((u) => u.phone.replace(/\D/g, '').slice(-10) === cleanPhone);
+    if (existingPhone) {
+      return res.status(409).json({ error: 'An account with this mobile number already exists. Please log in.' });
+    }
+
+    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    const userId = `user_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newUser: StoredUser = {
+      id: userId,
+      name: name.trim(),
+      email: cleanEmail,
+      phone: cleanPhone,
+      passwordHash,
+      address: address ? String(address).trim() : '',
+      city: city ? String(city).trim() : 'Hyderabad',
+      pincode: pincode ? String(pincode).trim() : '',
+      memberTier: 'Bronze',
+      loyaltyPoints: 100, // 100 Welcome bonus points
+      createdAt: new Date().toISOString(),
+    };
+
+    usersStore.unshift(newUser);
+    saveUsers(usersStore);
+
+    const token = crypto.randomBytes(24).toString('hex');
+    customerSessions.set(token, userId);
+
+    res.status(201).json({
+      success: true,
+      message: 'Account created successfully! 100 Welcome Points added to your wallet 🎉',
+      token,
+      user: sanitizeUser(newUser),
+    });
+  } catch (err: any) {
+    console.error('Sign up error:', err);
+    res.status(500).json({ error: 'Failed to create account. Please try again.' });
+  }
+});
+
+// Login
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  try {
+    const { emailOrPhone, password } = req.body;
+
+    if (!emailOrPhone || typeof emailOrPhone !== 'string') {
+      return res.status(400).json({ error: 'Please enter your email or mobile number.' });
+    }
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Please enter your password.' });
+    }
+
+    const cleanInput = emailOrPhone.trim().toLowerCase();
+    const digitsOnly = cleanInput.replace(/\D/g, '');
+
+    const user = usersStore.find((u) => {
+      const emailMatches = u.email.toLowerCase() === cleanInput;
+      const phoneMatches = digitsOnly.length >= 10 && u.phone.replace(/\D/g, '').includes(digitsOnly.slice(-10));
+      return emailMatches || phoneMatches;
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'No account found with this email or mobile number. Please sign up.' });
+    }
+
+    const inputHash = crypto.createHash('sha256').update(password).digest('hex');
+    if (inputHash !== user.passwordHash) {
+      return res.status(401).json({ error: 'Incorrect password. Please try again.' });
+    }
+
+    const token = crypto.randomBytes(24).toString('hex');
+    customerSessions.set(token, user.id);
+
+    res.json({
+      success: true,
+      message: `Welcome back, ${user.name}! 🍰`,
+      token,
+      user: sanitizeUser(user),
+    });
+  } catch (err: any) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Login failed. Please try again.' });
+  }
+});
+
+// Current User Session
+app.get('/api/auth/me', (req: Request, res: Response) => {
+  const user = getAuthUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  res.json({
+    success: true,
+    user: sanitizeUser(user),
+  });
+});
+
+// Update Profile & Delivery Address
+app.put('/api/auth/profile', (req: Request, res: Response) => {
+  const user = getAuthUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const { name, phone, address, city, pincode } = req.body;
+  if (name && typeof name === 'string') user.name = name.trim();
+  if (phone && typeof phone === 'string') user.phone = phone.replace(/\D/g, '').slice(-10);
+  if (address !== undefined) user.address = String(address).trim();
+  if (city !== undefined) user.city = String(city).trim();
+  if (pincode !== undefined) user.pincode = String(pincode).trim();
+
+  saveUsers(usersStore);
+
+  res.json({
+    success: true,
+    message: 'Profile updated successfully',
+    user: sanitizeUser(user),
+  });
+});
+
+// Get User's Orders
+app.get('/api/auth/orders', (req: Request, res: Response) => {
+  const user = getAuthUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const userCleanEmail = user.email.toLowerCase();
+  const userPhoneDigits = user.phone.replace(/\D/g, '').slice(-10);
+
+  const userOrders = ordersStore.filter((o) => {
+    const oEmail = (o.customer?.email || '').toLowerCase();
+    const oPhone = (o.customer?.phone || '').replace(/\D/g, '').slice(-10);
+    return (oEmail && oEmail === userCleanEmail) || (oPhone && oPhone === userPhoneDigits);
+  });
+
+  res.json({
+    success: true,
+    orders: userOrders,
+    count: userOrders.length,
+  });
+});
+
+// -------------------------------------------------------------
 // 3. CASH ON DELIVERY (COD) ORDER CREATION
 // -------------------------------------------------------------
 app.post('/api/orders', (req: Request, res: Response) => {
   try {
-    const { customer, items, deliveryDate, deliverySlot, paymentMethod, orderNotes, transactionId } = req.body;
+    const {
+      customer,
+      items,
+      deliveryDate,
+      deliverySlot,
+      paymentMethod,
+      orderNotes,
+      transactionId,
+      promoDiscount,
+      pointsDiscount,
+      pointsRedeemed,
+    } = req.body;
 
-    if (!customer?.fullName || !customer?.phone || !customer?.address) {
-      return res.status(400).json({ error: 'Customer name, phone, and delivery address are required' });
+    // 1. Customer validation
+    const fullName = customer?.fullName?.trim();
+    if (!fullName || fullName.length < 2) {
+      return res.status(400).json({ error: 'Customer full name is required (minimum 2 characters).' });
+    }
+
+    const email = customer?.email?.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!email || !emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Please provide a valid email address (e.g. name@example.com).' });
+    }
+
+    const rawPhone = String(customer?.phone || '').trim();
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+    const indianPhoneRegex = /^[6-9]\d{9}$/;
+    if (!cleanPhone || !indianPhoneRegex.test(cleanPhone)) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.' });
+    }
+
+    const address = customer?.address?.trim();
+    if (!address || address.length < 5) {
+      return res.status(400).json({ error: 'Complete delivery address is required (minimum 5 characters).' });
+    }
+
+    const pincode = String(customer?.pincode || '').trim();
+    if (!pincode || !/^\d{6}$/.test(pincode)) {
+      return res.status(400).json({ error: 'A valid 6-digit delivery pincode is required.' });
+    }
+
+    const city = customer?.city?.trim();
+    if (!city) {
+      return res.status(400).json({ error: 'Delivery city is required.' });
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'Order must contain at least one item' });
+      return res.status(400).json({ error: 'Order must contain at least one item.' });
+    }
+
+    // 2. Duplicate submission protection (prevent identical orders within 15 seconds)
+    const now = Date.now();
+    const isDuplicate = ordersStore.some((existingOrder) => {
+      const orderTime = new Date(existingOrder.createdAt).getTime();
+      const isWithin15Sec = now - orderTime < 15000;
+      const isSamePhone = existingOrder.customer.phone.replace(/\D/g, '') === cleanPhone;
+      const isSameDate = existingOrder.deliveryDate === (deliveryDate || new Date().toISOString().split('T')[0]);
+      return isWithin15Sec && isSamePhone && isSameDate;
+    });
+
+    if (isDuplicate) {
+      return res.status(409).json({
+        error: 'Duplicate order detected. An identical order was submitted a few moments ago. Please check Track Order.',
+      });
     }
 
     const financials = calculateOrderFinancials(items, deliverySlot || 'evening');
     const orderId = `SB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const isCOD = paymentMethod === 'COD';
+    const extraDiscount = (Number(promoDiscount) || 0) + (Number(pointsDiscount) || 0);
+    const finalDiscount = financials.discount + extraDiscount;
+    const finalTotal = Math.max(0, financials.subtotal + financials.deliveryFee - finalDiscount);
+
+    const isCOD = paymentMethod === 'COD' || paymentMethod?.toLowerCase()?.includes('cash on delivery');
     const txnId = transactionId || (isCOD ? undefined : `TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`);
 
     const newOrder: StoredOrder = {
@@ -531,13 +925,13 @@ app.post('/api/orders', (req: Request, res: Response) => {
       items: financials.validatedItems,
       deliveryDate: deliveryDate || new Date().toISOString().split('T')[0],
       deliverySlot: deliverySlot || 'evening',
-      paymentMethod: paymentMethod || (isCOD ? 'COD' : 'ONLINE_UPI'),
+      paymentMethod: paymentMethod || (isCOD ? 'Cash on Delivery' : 'ONLINE_UPI'),
       paymentStatus: isCOD ? 'PENDING' : 'PAID',
       transactionId: txnId,
       subtotal: financials.subtotal,
       deliveryFee: financials.deliveryFee,
-      discount: financials.discount,
-      total: financials.total,
+      discount: finalDiscount,
+      total: finalTotal,
       orderNotes: orderNotes || '',
       createdAt: new Date().toISOString(),
       status: 'Order Confirmed',
@@ -554,13 +948,40 @@ app.post('/api/orders', (req: Request, res: Response) => {
           timestamp: new Date().toISOString(),
           note: isCOD
             ? 'Confirmed for doorstep cash/UPI payment'
-            : `Payment of ₹${financials.total} verified successfully (${txnId})`,
+            : `Payment of ₹${finalTotal} verified successfully (${txnId})`,
         },
       ],
     };
 
     ordersStore.unshift(newOrder);
     saveOrders(ordersStore);
+
+    // Sync loyalty points for customer if authenticated or matched by email/phone
+    try {
+      const authUser = getAuthUser(req);
+      const user = authUser ||
+        (customer.email ? usersStore.find((u) => u.email.toLowerCase() === customer.email.toLowerCase().trim()) : null) ||
+        (customer.phone ? usersStore.find((u) => u.phone.includes(customer.phone.replace(/\D/g, '').slice(-10))) : null);
+
+      if (user) {
+        if (pointsRedeemed && Number(pointsRedeemed) > 0) {
+          user.loyaltyPoints = Math.max(0, user.loyaltyPoints - Number(pointsRedeemed));
+        }
+        const earned = Math.floor(finalTotal / 10);
+        user.loyaltyPoints += earned;
+        user.memberTier =
+          user.loyaltyPoints >= 1000
+            ? 'VIP'
+            : user.loyaltyPoints >= 500
+            ? 'Gold'
+            : user.loyaltyPoints >= 200
+            ? 'Silver'
+            : 'Bronze';
+        saveUsers(usersStore);
+      }
+    } catch (userErr) {
+      console.warn('Loyalty points sync error (non-fatal):', userErr);
+    }
 
     res.status(201).json({
       success: true,
@@ -1010,6 +1431,15 @@ Currency: ₹ (INR). All prices are in Indian Rupees.
 Your identity: "Sweet Bliss AI Assistant" — your personal bakery assistant.
 Do not reference provider brand names in customer conversation.
 
+Language & Greeting Rules:
+- If the customer speaks or greets in Hindi or Hinglish (e.g. "हाय", "हेलो", "गुड मॉर्निंग", "गुड नाइट", "हाउ आर यू", "फाइन", "डिलीवरी टाइम"), ALWAYS reply warmly in polite Hindi/Hinglish matching their greeting!
+- When customer says "हाय" or "Hi", reply with a warm "हेलो! नमस्ते! 🍰 स्वीट ब्लिस में आपका स्वागत है...".
+- When customer says "गुड मॉर्निंग" or "Good morning", wish them "गुड मॉर्निंग! ☀️ आपका दिन बहुत मीठा और खुशियों भरा हो...".
+- When customer says "गुड नाइट" or "Good night", wish them "शुभ रात्रि (Good Night)! 🌙...".
+- When customer asks "हाउ आर यू" or "How are you", answer "मैं बहुत बढ़िया हूँ! आप कैसे हैं?...".
+- When customer says "फाइन" or "Fine", respond "यह जानकर बहुत खुशी हुई! आइए आपके लिए शानदार केक चुनते हैं...".
+- When customer asks about "डिलीवरी टाइम" or "Delivery time", explain that we provide same-day delivery within 2-4 hours with live GPS tracking and scheduled morning/afternoon/evening slots.
+
 Your goals:
 1. Provide warm, charming, and expert cake suggestions based on the user's occasion (Birthday, Anniversary, Wedding), guest count, budget, flavours, and dietary needs (100% Eggless available on all cakes).
 2. Ground all recommendations STRICTLY in the Sweet Bliss catalogue below. Do NOT invent fake cakes or prices.
@@ -1060,34 +1490,113 @@ ${JSON.stringify(catalogueSummary, null, 2)}
       }
     }
 
-    // Rule-based fallback if Gemini key is absent
-    const lower = message.toLowerCase();
+    // Comprehensive Rule-based fallback if Gemini key is absent
+    const lower = message.toLowerCase().trim();
     let matchingIds: string[] = [];
     let reply = '';
+    let quickOptions: string[] = ['Explore All Cakes', 'Custom Cake Order'];
 
-    if (lower.includes('chocolate') || lower.includes('truffle') || lower.includes('dark')) {
+    if (
+      lower === 'hi' ||
+      lower === 'hey' ||
+      lower === 'hello' ||
+      lower.includes('हाय') ||
+      lower.includes('हेलो') ||
+      lower.includes('हेल्लो') ||
+      lower.includes('नमस्ते') ||
+      lower.startsWith('hi ') ||
+      lower.startsWith('hello ')
+    ) {
+      reply =
+        'हेलो और नमस्ते! 🍰 Sweet Bliss Bakery में आपका हार्दिक स्वागत है। आज आप किस खास मौके (बर्थडे, एनिवर्सरी, पार्टी) के लिए केक तलाश रहे हैं? मैं आपकी पूरी मदद करूँगा!';
+      matchingIds = ['chocolate-truffle-cake', 'pastel-rose-celebration', 'red-velvet-cake'];
+      quickOptions = ['Birthday Cakes', 'Anniversary Specials', '100% Eggless Cakes', 'Start Custom Order'];
+    } else if (
+      lower.includes('गुड मॉर्निंग') ||
+      lower.includes('good morning') ||
+      lower.includes('सुप्रभात') ||
+      lower === 'gm'
+    ) {
+      reply =
+        'गुड मॉर्निंग जी! ☀️ आपका दिन मंगलमय और मिठास भरा हो। आज हम आपके लिए कौन सा ताज़ा बेक्ड सेलिब्रेशन केक तैयार करें?';
+      matchingIds = ['fresh-fruit-cake', 'chocolate-truffle-cake'];
+      quickOptions = ['Same-Day Delivery Cakes', 'Pastel Rose Dream', 'Belgian Chocolate'];
+    } else if (
+      lower.includes('गुड नाइट') ||
+      lower.includes('good night') ||
+      lower.includes('शुभ रात्रि') ||
+      lower === 'gn'
+    ) {
+      reply =
+        'शुभ रात्रि (Good Night) जी! 🌙 मीठे सपनों के साथ स्वीट ब्लिस से जुड़ने के लिए धन्यवाद। कल सुबह की फ्रेश डिलीवरी के लिए आप अभी भी प्री-ऑर्डर कर सकते हैं!';
+      matchingIds = ['belgian-chocolate-truffle', 'red-velvet-cake'];
+      quickOptions = ['Pre-order for Tomorrow', 'Explore Catalogue'];
+    } else if (
+      lower.includes('हाउ आर यू') ||
+      lower.includes('how are you') ||
+      lower.includes('kaise ho') ||
+      lower.includes('कैसे हो')
+    ) {
+      reply =
+        'मैं बहुत बढ़िया और आपके लिए मीठी खुशियाँ तलाशने को पूरी तरह तैयार हूँ! 😊 आप कैसे हैं? आज क्या टेस्टी चखने का मन है?';
+      matchingIds = ['chocolate-fudge-cake', 'butterscotch-cake'];
+      quickOptions = ['Trending Cakes', 'Chef Specials', 'Eggless Range'];
+    } else if (
+      lower === 'fine' ||
+      lower.includes('फाइन') ||
+      lower.includes('i am fine') ||
+      lower.includes('theek hu') ||
+      lower.includes('ठीक हूँ') ||
+      lower.includes('badhiya') ||
+      lower.includes('बढ़िया')
+    ) {
+      reply =
+        'यह जानकर बहुत खुशी हुई! आइए आपके टेस्ट के हिसाब से सबसे स्वादिष्ट केक चुनते हैं। क्या आप चॉकलेट, फ्रूट, या रेड वेल्वेट फ्लेवर पसंद करेंगे?';
+      matchingIds = ['chocolate-truffle-cake', 'fruit-cake', 'red-velvet-cake'];
+      quickOptions = ['Chocolate Truffle', 'Fresh Fruit Cake', 'Red Velvet'];
+    } else if (
+      lower.includes('डिलीवरी टाइम') ||
+      lower.includes('delivery time') ||
+      lower.includes('kab tak') ||
+      lower.includes('टाइम') ||
+      lower.includes('timing')
+    ) {
+      reply =
+        'हम पूरे शहर में 2 से 4 घंटे के अंदर सुपर-फास्ट और सेफ सेम-डे डिलीवरी करते हैं! 🚚📦 इसके अलावा आप चेकआउट पर सुबह (9AM-1PM), दोपहर (1PM-5PM), शाम (5PM-9PM) या मिडनाइट (11PM-12AM) स्लॉट भी चुन सकते हैं।';
+      matchingIds = ['chocolate-truffle-cake', 'red-velvet-cake'];
+      quickOptions = ['Same Day Cakes', 'Midnight Delivery', 'Track Live Order'];
+    } else if (lower.includes('chocolate') || lower.includes('truffle') || lower.includes('चॉकलेट')) {
       matchingIds = ['chocolate-truffle-cake', 'chocolate-fudge-cake'];
       reply =
-        'For chocolate lovers, our Belgian Chocolate Truffle Cake (₹699) is our absolute #1 best seller! Made with 55% Belgian chocolate ganache, moist dark sponge, and edible 24k gold leaf. It is also prepared 100% eggless.';
+        'चॉकलेट लवर्स के लिए हमारा Belgian Chocolate Truffle Cake (₹699) हमारा नंबर-1 बेस्टसेलर है! यह 55% डार्क बेल्जियन गनाचे और 24k एडिबल गोल्ड लीफ से सजाया जाता है। यह 100% एगलेस भी उपलब्ध है।';
+      quickOptions = ['Order Belgian Truffle', 'Explore More Flavours'];
     } else if (lower.includes('rose') || lower.includes('flower') || lower.includes('romantic') || lower.includes('anniversary')) {
       matchingIds = ['pastel-rose-celebration', 'red-velvet-cake'];
       reply =
-        'For romantic celebrations and anniversaries, our Pastel Rose Dream Cake (₹1,399) or Classic Red Velvet Cake (₹749) with cream cheese rosettes are sensational choices decorated with real garden roses.';
-    } else if (lower.includes('fruit') || lower.includes('fresh') || lower.includes('mango')) {
+        'रोमांटिक मौकों और सालगिरह (Anniversary) के लिए हमारा Pastel Rose Dream Cake (₹1,399) और Classic Red Velvet Cake (₹749) सबसे पसंदीदा विकल्प हैं, जो रियल गार्डन रोज़ेस से सजाए जाते हैं।';
+      quickOptions = ['View Pastel Rose', 'View Red Velvet'];
+    } else if (lower.includes('fruit') || lower.includes('fresh') || lower.includes('mango') || lower.includes('फ्रूट')) {
       matchingIds = ['fruit-cake', 'mango-cake', 'strawberry-cake'];
       reply =
-        'Our Fresh Fruit Cake (₹799) is piled high with strawberries, kiwi, blueberries, dragonfruit, and mango in a delicate glaze. Super light and refreshing!';
+        'हमारा Fresh Fruit Cake (₹799) स्ट्रॉबेरी, कीवी, ब्लूबेरी, ड्रैगनफ्रूट और आम के ताज़ा टुकड़ों से भरपूर है। बहुत हल्का और रिफ्रेशिंग!';
+      quickOptions = ['View Fruit Cake', 'Seasonal Specials'];
+    } else if (lower.includes('eggless') || lower.includes('एगलेस') || lower.includes('veg')) {
+      matchingIds = ['chocolate-truffle-cake', 'red-velvet-cake', 'fruit-cake'];
+      reply =
+        'स्वीट ब्लिस के सभी केक्स 100% एगलेस (शुद्ध शाकाहारी) विकल्प के साथ तैयार किए जाते हैं! हमारा किचन शुद्धता और हाइजीन के कड़े नियमों का पालन करता है।';
+      quickOptions = ['View 100% Eggless Menu', 'Order Truffle Cake'];
     } else {
       matchingIds = ['chocolate-truffle-cake', 'red-velvet-cake', 'fruit-cake', 'butterscotch-cake'];
       reply =
-        'Welcome to Sweet Bliss! For celebrations of 8-12 guests, a 1 kg cake is ideal. Our favorites include our signature Belgian Chocolate Truffle, Classic Red Velvet, and Fresh Fruit Cake. How many guests are you celebrating with?';
+        'स्वीट ब्लिस बेकरी में आपका स्वागत है! 🎂 हमारे पास हर सेलिब्रेशन के लिए हाथ से तैयार फ्रेश केक्स हैं। 8-12 मेहमानों के लिए 1 kg केक सबसे उपयुक्त रहता है। आज आप कितने मेहमानों के लिए प्लान कर रहे हैं?';
+      quickOptions = ['Birthday Cakes', 'Anniversary Cakes', '100% Eggless Options', 'Custom Cake Order'];
     }
 
     res.json({
       reply,
       suggestedProductIds: matchingIds,
       customCakeIdea: null,
-      quickOptions: ['Birthday Cakes', 'Anniversary Cakes', '100% Eggless Options', 'Custom Cake Order'],
+      quickOptions,
     });
   } catch (error: unknown) {
     console.error('Error in AI assistant endpoint:', error);

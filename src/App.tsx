@@ -17,12 +17,13 @@ import { AdminOrderPage } from './components/AdminOrderPage.tsx';
 import { CartDrawer } from './components/CartDrawer.tsx';
 import { WishlistDrawer } from './components/WishlistDrawer.tsx';
 import { AccountModal } from './components/AccountModal.tsx';
+import { AuthModal } from './components/AuthModal.tsx';
 import { AiAssistantModal } from './components/AiAssistantModal.tsx';
 import { AboutPage } from './components/AboutPage.tsx';
 import { ContactPage } from './components/ContactPage.tsx';
 import { PrivacyTermsPage } from './components/PrivacyTermsPage.tsx';
 import { PRODUCTS, CakeProduct } from './data/bakeryData.ts';
-import { CartItem, PageRoute, PlacedOrder } from './types.ts';
+import { CartItem, PageRoute, PlacedOrder, CustomerUser } from './types.ts';
 import { Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -36,6 +37,82 @@ export default function App() {
   const [isWishlistOpen, setIsWishlistOpen] = useState<boolean>(false);
   const [isAccountOpen, setIsAccountOpen] = useState<boolean>(false);
   const [isAiAssistantOpen, setIsAiAssistantOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'signup'>('login');
+
+  // Customer User Authentication State
+  const [currentUser, setCurrentUser] = useState<CustomerUser | null>(() => {
+    try {
+      const saved = localStorage.getItem('sb_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Load and refresh user session from server if token exists
+  useEffect(() => {
+    const token = localStorage.getItem('sb_auth_token');
+    const savedUser = localStorage.getItem('sb_user');
+    if (token || savedUser) {
+      const parsed = savedUser ? JSON.parse(savedUser) : null;
+      fetch('/api/auth/me', {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(parsed?.id ? { 'x-user-id': parsed.id } : {}),
+        },
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.user) {
+            setCurrentUser(data.user);
+            localStorage.setItem('sb_user', JSON.stringify(data.user));
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
+  // Fetch past orders for logged-in user
+  useEffect(() => {
+    if (currentUser?.id) {
+      const token = localStorage.getItem('sb_auth_token');
+      fetch('/api/auth/orders', {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'x-user-id': currentUser.id,
+        },
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.orders && Array.isArray(data.orders) && data.orders.length > 0) {
+            setRecentOrders((prev) => {
+              const existingIds = new Set(prev.map((o) => o.orderId));
+              const newOrders = data.orders.filter((o: PlacedOrder) => !existingIds.has(o.orderId));
+              return [...newOrders, ...prev];
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [currentUser?.id]);
+
+  const handleOpenAuth = (mode: 'login' | 'signup' = 'login') => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (user: CustomerUser) => {
+    setCurrentUser(user);
+    showToast(`Welcome, ${user.name}! 🍰`);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('sb_auth_token');
+    localStorage.removeItem('sb_user');
+    setCurrentUser(null);
+    showToast('Signed out successfully 👋');
+  };
 
   // Cart & Wishlist with localStorage persistence
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -184,6 +261,29 @@ export default function App() {
     setPlacedOrder(order);
     setRecentOrders((prev) => [order, ...prev]);
     setCartItems([]);
+
+    if (currentUser) {
+      const earnedPoints = Math.floor(order.total / 10);
+      const updatedUser: CustomerUser = {
+        ...currentUser,
+        loyaltyPoints: currentUser.loyaltyPoints + earnedPoints,
+        memberTier:
+          currentUser.loyaltyPoints + earnedPoints >= 1000
+            ? 'VIP'
+            : currentUser.loyaltyPoints + earnedPoints >= 500
+            ? 'Gold'
+            : currentUser.loyaltyPoints + earnedPoints >= 200
+            ? 'Silver'
+            : 'Bronze',
+      };
+      setCurrentUser(updatedUser);
+      try {
+        localStorage.setItem('sb_user', JSON.stringify(updatedUser));
+      } catch (e) {
+        console.warn('Failed to update local storage user', e);
+      }
+    }
+
     setCurrentRoute('order-confirmation');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -197,7 +297,7 @@ export default function App() {
   const totalCartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FFF9F9] text-stone-900 selection:bg-rose-200 selection:text-rose-900 font-sans">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-[#FFF9F9] text-stone-900 selection:bg-rose-200 selection:text-rose-900 font-sans">
       {/* Google Maps Quota Exceeded Banner */}
       {gmpQuotaExceeded && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
@@ -237,10 +337,12 @@ export default function App() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onSelectProduct={(p) => setSelectedProduct(p)}
+        currentUser={currentUser}
+        onOpenAuth={(mode) => handleOpenAuth(mode)}
       />
 
       {/* Main Page Body Routing */}
-      <main className="flex-1">
+      <main className="flex-1 w-full max-w-full overflow-x-hidden">
         {currentRoute === 'home' && (
           <>
             <HeroSection
@@ -322,6 +424,8 @@ export default function App() {
             onOrderCompleted={handleOrderCompleted}
             onBackToCart={() => setIsCartOpen(true)}
             onExploreCakes={() => setCurrentRoute('shop')}
+            currentUser={currentUser}
+            onOpenAuth={(mode) => handleOpenAuth(mode)}
           />
         )}
 
@@ -377,6 +481,8 @@ export default function App() {
       <Footer
         onRouteChange={(route) => setCurrentRoute(route)}
         onSelectCategory={handleSelectCategory}
+        currentUser={currentUser}
+        onOpenAuth={(mode) => handleOpenAuth(mode)}
       />
 
       {/* Modals & Drawers */}
@@ -439,8 +545,22 @@ export default function App() {
             setCurrentRoute('admin');
             window.scrollTo({ top: 0, behavior: 'smooth' });
           }}
+          currentUser={currentUser}
+          onOpenAuth={(mode) => handleOpenAuth(mode)}
+          onLogout={handleLogout}
+          onUpdateUser={(user) => {
+            setCurrentUser(user);
+            localStorage.setItem('sb_user', JSON.stringify(user));
+          }}
         />
       )}
+
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authModalMode}
+        onSuccess={handleAuthSuccess}
+      />
 
       {isAiAssistantOpen && (
         <AiAssistantModal

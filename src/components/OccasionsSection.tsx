@@ -32,7 +32,7 @@ export const OccasionsSection: React.FC<OccasionsSectionProps> = ({
   ];
 
   return (
-    <section className="py-12 bg-white">
+    <section className="py-12 bg-white w-full max-w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl bg-gradient-to-r from-[#FFF0F4] via-[#FFF6F8] to-[#FFF0F4] border border-rose-200/70 p-6 sm:p-10 flex flex-col lg:flex-row items-center justify-between gap-8">
           {/* Left Side: Headline & Explore Button */}

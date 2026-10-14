@@ -10,10 +10,26 @@
   --color-bliss-cream: #fff9f9;
 }
 
+html,
 body {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
   font-family: var(--font-sans);
   background-color: #fff9f9;
   color: #2b1d1d;
+  margin: 0;
+  padding: 0;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-x: none;
+}
+
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  position: relative;
 }
 
 /* Custom scrollbars for menus and dialogs */

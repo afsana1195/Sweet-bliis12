@@ -99,15 +99,37 @@ export const AiAssistantModal: React.FC<AiAssistantModalProps> = ({
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err) {
       console.error('Error fetching AI response:', err);
-      // Fallback
+      const lower = textToSend.toLowerCase().trim();
+      let fallbackText = "Our signature Belgian Chocolate Truffle and Pastel Rose Dream cakes are crowd favorites! How many people are you hosting?";
+      let fallbackProducts = [PRODUCTS[0], PRODUCTS[4]];
+      let fallbackOptions = ['For 5-8 people', 'For 15-20 people', 'Start Custom Order'];
+
+      if (lower.includes('हाय') || lower === 'hi' || lower === 'hello' || lower.includes('हेलो')) {
+        fallbackText = "हेलो और नमस्ते! 🍰 Sweet Bliss Bakery में आपका हार्दिक स्वागत है। आज आप किस खास मौके (बर्थडे, एनिवर्सरी, पार्टी) के लिए केक तलाश रहे हैं?";
+        fallbackProducts = [PRODUCTS[0], PRODUCTS[1], PRODUCTS[4]];
+        fallbackOptions = ['Birthday Cakes', 'Anniversary Specials', '100% Eggless Cakes'];
+      } else if (lower.includes('गुड मॉर्निंग') || lower.includes('good morning')) {
+        fallbackText = "गुड मॉर्निंग जी! ☀️ आपका दिन मंगलमय और मिठास भरा हो। आज हम आपके लिए कौन सा ताज़ा बेक्ड सेलिब्रेशन केक तैयार करें?";
+        fallbackProducts = [PRODUCTS[0], PRODUCTS[4]];
+        fallbackOptions = ['Fresh Fruit Cake', 'Belgian Chocolate', 'Pastel Rose Dream'];
+      } else if (lower.includes('गुड नाइट') || lower.includes('good night')) {
+        fallbackText = "शुभ रात्रि (Good Night)! 🌙 मीठे सपनों के साथ स्वीट ब्लिस से जुड़ने के लिए धन्यवाद। कल सुबह की डिलीवरी के लिए आप अभी भी प्री-ऑर्डर कर सकते हैं!";
+      } else if (lower.includes('हाउ आर यू') || lower.includes('how are you')) {
+        fallbackText = "मैं बहुत बढ़िया और आपके लिए मीठी खुशियाँ तलाशने को पूरी तरह तैयार हूँ! 😊 आप कैसे हैं?";
+      } else if (lower.includes('फाइन') || lower === 'fine') {
+        fallbackText = "यह जानकर बहुत खुशी हुई! आइए आपके सेलिब्रेशन के लिए सबसे पसंदीदा केक चुनते हैं।";
+      } else if (lower.includes('डिलीवरी टाइम') || lower.includes('delivery time')) {
+        fallbackText = "हम पूरे शहर में 2 से 4 घंटे के अंदर सुपर-फास्ट और सेफ सेम-डे डिलीवरी करते हैं! 🚚📦 आप अपना मनपसंद टाइम स्लॉट भी चुन सकते हैं।";
+      }
+
       setMessages((prev) => [
         ...prev,
         {
           id: `ai-${Date.now()}`,
           sender: 'ai',
-          text: "Our signature Belgian Chocolate Truffle and Pastel Rose Dream cakes are crowd favorites! How many people are you hosting?",
-          suggestedProducts: [PRODUCTS[0], PRODUCTS[4]],
-          quickOptions: ['For 5-8 people', 'For 15-20 people', 'Start Custom Order'],
+          text: fallbackText,
+          suggestedProducts: fallbackProducts,
+          quickOptions: fallbackOptions,
         },
       ]);
     } finally {

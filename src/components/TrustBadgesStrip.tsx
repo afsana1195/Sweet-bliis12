@@ -2,7 +2,7 @@ import React from 'react';
 
 export const TrustBadgesStrip: React.FC = () => {
   return (
-    <div className="bg-[#FFF5F8] border-y border-rose-100 py-6">
+    <div className="bg-[#FFF5F8] border-y border-rose-100 py-6 w-full max-w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
           {/* Badge 1: 100% Fresh Ingredients */}

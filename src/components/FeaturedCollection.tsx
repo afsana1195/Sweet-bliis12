@@ -93,7 +93,7 @@ export const FeaturedCollection: React.FC<FeaturedCollectionProps> = ({
   };
 
   return (
-    <div className="space-y-16 py-12 bg-white">
+    <div className="space-y-16 py-12 bg-white w-full max-w-full overflow-hidden">
       {/* =========================================================================
           1. MAIN CAKES COLLECTION (Prominent Multi-Row Product Section)
       ========================================================================== */}

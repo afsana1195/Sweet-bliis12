@@ -273,6 +273,15 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
     },
   ]);
   const [inputChatText, setInputChatText] = useState('');
+  const [isRiderTyping, setIsRiderTyping] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto scroll chat to bottom
+  useEffect(() => {
+    if (showChatModal) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, isRiderTyping, showChatModal]);
 
   // Tipping State
   const [selectedTip, setSelectedTip] = useState<number | null>(null);
@@ -596,9 +605,314 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
     }
   }, [showCallModal]);
 
+  const getRiderSmartReply = (rawText: string): string => {
+    const t = rawText.toLowerCase().trim();
+
+    // 1. हाय / Hi / Hey / Hello / नमस्ते
+    if (
+      t === 'hi' ||
+      t === 'hey' ||
+      t === 'hello' ||
+      t.includes('हाय') ||
+      t.includes('हेल्लो') ||
+      t.includes('हेलो') ||
+      t.includes('नमस्ते') ||
+      t.includes('namaste') ||
+      t.startsWith('hi ') ||
+      t.startsWith('hey ') ||
+      t.startsWith('hello ')
+    ) {
+      return 'हेलो! नमस्ते जी! मैं राहुल शर्मा (आपका डिलीवरी पार्टनर)। बताइए, मैं आपकी क्या मदद कर सकता हूँ? 😊';
+    }
+
+    // 2. गुड मॉर्निंग / Good morning / Suprabhat
+    if (
+      t.includes('गुड मॉर्निंग') ||
+      t.includes('good morning') ||
+      t.includes('suprabhat') ||
+      t.includes('सुप्रभात') ||
+      t === 'gm'
+    ) {
+      return 'गुड मॉर्निंग जी! ☀️ आपका दिन मंगलमय और मिठास भरा हो। आपका फ्रेश केक रास्ते में है और समय पर सुरक्षित पहुँच रहा हूँ।';
+    }
+
+    // 3. गुड नाइट / Good night / Shubh ratri
+    if (
+      t.includes('गुड नाइट') ||
+      t.includes('good night') ||
+      t.includes('goodnight') ||
+      t.includes('shubh ratri') ||
+      t.includes('शुभ रात्रि') ||
+      t === 'gn'
+    ) {
+      return 'शुभ रात्रि (Good Night) जी! 🌙 उम्मीद है आज की सेलिब्रेशन बहुत यादगार रहेगी। स्वीट ब्लिस से जुड़ने के लिए दिल से धन्यवाद!';
+    }
+
+    // 4. गुड आफ्टरनून / Good afternoon
+    if (t.includes('गुड आफ्टरनून') || t.includes('good afternoon') || t.includes('afternoon')) {
+      return 'गुड आफ्टरनून जी! 🌤️ आपका केक बिल्कुल सेफ और टेम्परेचर-कंट्रोल्ड बॉक्स में ठंडा व फ्रेश सुरक्षित है।';
+    }
+
+    // 5. गुड इवनिंग / Good evening
+    if (t.includes('गुड इवनिंग') || t.includes('good evening') || t.includes('evening')) {
+      return 'गुड इवनिंग जी! 🌆 शाम की पार्टी के लिए आपका स्वादिष्ट केक बस कुछ ही मिनटों में आपके दरवाज़े पर होगा।';
+    }
+
+    // 6. हाउ आर यू / How are you / Kaise ho
+    if (
+      t.includes('हाउ आर यू') ||
+      t.includes('how are you') ||
+      t.includes('kaise ho') ||
+      t.includes('कैसे हो') ||
+      t.includes('aap kaise ho') ||
+      t.includes('kaisa hai') ||
+      t.includes('how r u')
+    ) {
+      return 'मैं बिल्कुल बढ़िया और सेफ हूँ जी! आप कैसे हैं? आपकी सेवा के लिए हमेशा तैयार। 🛵';
+    }
+
+    // 7. फाइन / Fine / I am fine / Theek hu / Badhiya
+    if (
+      t === 'fine' ||
+      t.includes('फाइन') ||
+      t.includes('i am fine') ||
+      t.includes('im fine') ||
+      t.includes('theek hu') ||
+      t.includes('ठीक हूँ') ||
+      t.includes('badhiya') ||
+      t.includes('बढ़िया') ||
+      t.includes('all good') ||
+      t === 'good'
+    ) {
+      return 'यह जानकर बहुत खुशी हुई जी! 😊 अगर डिलीवरी के लिए कोई खास निर्देश हो तो बेझिझक बताएं।';
+    }
+
+    // 8. डिलीवरी टाइम / Delivery time / Kab tak / Kitna time / ETA
+    if (
+      t.includes('डिलीवरी टाइम') ||
+      t.includes('delivery time') ||
+      t.includes('kab tak') ||
+      t.includes('कब तक') ||
+      t.includes('kitna time') ||
+      t.includes('kitni der') ||
+      t.includes('eta') ||
+      t.includes('when will you reach') ||
+      t.includes('time lagega') ||
+      t.includes('kitna der') ||
+      t.includes('टाइम')
+    ) {
+      return 'मैं अभी आपके इलाके के काफी करीब हूँ! ट्रैफिक सामान्य है और अगले 10 से 15 मिनट में आपके पते पर पहुँच जाऊँगा। ⏱️';
+    }
+
+    // 9. लोकेशन / Location / Where are you / Kahan ho
+    if (
+      t.includes('लोकेशन') ||
+      t.includes('location') ||
+      t.includes('kahan ho') ||
+      t.includes('कहाँ हो') ||
+      t.includes('kidhar ho') ||
+      t.includes('where are you') ||
+      t.includes('live location') ||
+      t.includes('rastay')
+    ) {
+      return 'मैं अभी मैप पर दिखाए अनुसार आपके डिलीवरी रूट पर आगे बढ़ रहा हूँ। आप ऊपर लाइव जीपीएस मैप पर मेरी रियल-टाइम लोकेशन भी देख सकते हैं! 📍';
+    }
+
+    // 10. केक सेफ है / Cake safe / Sambhal ke lana
+    if (
+      t.includes('केक सेफ') ||
+      t.includes('cake safe') ||
+      t.includes('sambhal') ||
+      t.includes('संभाल') ||
+      t.includes('careful') ||
+      t.includes('toot') ||
+      t.includes('damage') ||
+      t.includes('horizontal') ||
+      t.includes('flat')
+    ) {
+      return 'जी हाँ, 100% बेफिक्र रहिए! 🎂 हमारे पास विशेष शॉक-प्रूफ और लेवल्ड केक बॉक्स है। मैं बेहद सावधानी और धीमी गति से ड्राइव कर रहा हूँ ताकि केक बिल्कुल परफेक्ट रहे।';
+    }
+
+    // 11. डोरबेल मत बजाना / Doorbell / Don't ring bell / Baby sleeping
+    if (
+      t.includes('डोरबेल') ||
+      t.includes('doorbell') ||
+      t.includes('bell') ||
+      t.includes('घंटी') ||
+      t.includes('ring') ||
+      t.includes('baby') ||
+      t.includes('sleeping') ||
+      t.includes('knock')
+    ) {
+      return 'बिल्कुल समझ गया जी! मैं डोरबेल बिल्कुल नहीं बजाऊँगा, दरवाज़े पर धीरे से नॉक करूँगा या मैसेज कर दूँगा। 🤫👍';
+    }
+
+    // 12. सिक्योरिटी गार्ड / Security guard / Guard ko de do
+    if (
+      t.includes('सिक्योरिटी') ||
+      t.includes('गार्ड') ||
+      t.includes('guard') ||
+      t.includes('security') ||
+      t.includes('watchman') ||
+      t.includes('gatekeeper') ||
+      t.includes('reception')
+    ) {
+      return 'जी बिल्कुल! मैं केक आपके अपार्टमेंट के मेन गेट / सिक्योरिटी डेस्क पर आपका नाम और फ्लैट नंबर लिखकर सुरक्षित सौंप दूँगा। 🛡️';
+    }
+
+    // 13. कॉल करो / Call me / Phone karo
+    if (
+      t.includes('कॉल करो') ||
+      t.includes('call me') ||
+      t.includes('phone') ||
+      t.includes('फोन') ||
+      t.includes('call') ||
+      t.includes('contact') ||
+      t.includes('baat karo')
+    ) {
+      return 'जी ज़रूर! जैसे ही मैं आपकी बिल्डिंग/गेट के पास पहुँचूँगा, तुरंत आपको कॉल कर लूँगा। आप चाहें तो ऊपर दिए कॉल बटन से भी सीधे बात कर सकते हैं। 📞';
+    }
+
+    // 14. ऑनलाइन पेमेंट / UPI QR / GPay / PhonePe / Cash
+    if (
+      t.includes('पेमेंट') ||
+      t.includes('payment') ||
+      t.includes('upi') ||
+      t.includes('qr') ||
+      t.includes('gpay') ||
+      t.includes('phonepe') ||
+      t.includes('paytm') ||
+      t.includes('cash') ||
+      t.includes('कैश')
+    ) {
+      return 'हाँजी, बिल्कुल! मेरे पास डिलीवरी पर कंपनी का UPI QR कोड उपलब्ध है। आप Google Pay, PhonePe, Paytm या कैश से आसानी से पेमेंट कर सकते हैं। 💳📲';
+    }
+
+    // 15. लेट क्यों / Late / Traffic / Jaldi aao
+    if (
+      t.includes('लेट') ||
+      t.includes('late') ||
+      t.includes('traffic') ||
+      t.includes('jam') ||
+      t.includes('jaldi') ||
+      t.includes('hurry') ||
+      t.includes('der')
+    ) {
+      return 'हल्का सा सिग्नल पर ट्रैफिक था जी, पर केक की नाजुक सजावट को सुरक्षित रखते हुए मैं तेज़ी से आ रहा हूँ, बस 5-8 मिनट में हाज़िर हूँ! 🛵💨';
+    }
+
+    // 16. एड्रेस / Landmark / Address / Flat No / Rasta
+    if (
+      t.includes('एड्रेस') ||
+      t.includes('address') ||
+      t.includes('landmark') ||
+      t.includes('flat') ||
+      t.includes('हाउस') ||
+      t.includes('house') ||
+      t.includes('रास्ता') ||
+      t.includes('गली')
+    ) {
+      return 'जी, अगर कोई खास लैंडमार्क, गली या गेट नंबर हो तो कृपया यहाँ बता दीजिए, मुझे आपके पते तक सीधे पहुँचने में आसानी होगी। 🏡';
+    }
+
+    // 17. फ्रेश है / Fresh cake / Eggless / Veg
+    if (
+      t.includes('फ्रेश') ||
+      t.includes('fresh') ||
+      t.includes('eggless') ||
+      t.includes('एगलेस') ||
+      t.includes('veg') ||
+      t.includes('ताज़ा') ||
+      t.includes('quality')
+    ) {
+      return 'जी हाँ, यह 100% ताज़ा और आज ही बेक किया हुआ सर्टिफाइड केक है। इसे हाइजीनिक तरीके से सील पैक किया गया है। ✨';
+    }
+
+    // 18. कैंडल और चाकू / Candle / Knife / Chaku / Mombatti
+    if (
+      t.includes('कैंडल') ||
+      t.includes('चाकू') ||
+      t.includes('candle') ||
+      t.includes('knife') ||
+      t.includes('chaku') ||
+      t.includes('mombatti') ||
+      t.includes('spoon') ||
+      t.includes('napkin')
+    ) {
+      return 'जी हाँ! केक बॉक्स के साथ बर्थडे कैंडल्स, केक नाइफ और नैपकिन्स का पाउच पहले से सुरक्षित लगा हुआ है। 🕯️🍴';
+    }
+
+    // 19. थैंक यू / Thank you / Thanks / Dhanyawad / Shukriya
+    if (
+      t.includes('थैंक यू') ||
+      t.includes('thank you') ||
+      t.includes('thanks') ||
+      t.includes('dhanyawad') ||
+      t.includes('धन्यवाद') ||
+      t.includes('shukriya') ||
+      t.includes('शुक्रिया') ||
+      t === 'ty' ||
+      t === 'thx'
+    ) {
+      return 'बहुत-बहुत धन्यवाद आपका! 🙏 आपके प्यारे शब्दों से हमारा दिन बन गया। आपकी सेलिब्रेशन बहुत शानदार रहे!';
+    }
+
+    // 20. ओके / OK / Theek hai / Alright / Done
+    if (
+      t === 'ok' ||
+      t === 'okay' ||
+      t === 'theek hai' ||
+      t === 'ठीक है' ||
+      t.includes('alright') ||
+      t.includes('done') ||
+      t.includes('got it') ||
+      t.includes('acha') ||
+      t === 'k'
+    ) {
+      return 'जी बहुत बढ़िया! बस कुछ ही पलों में आपसे मुलाक़ात होती है। Have a wonderful day! 🎉';
+    }
+
+    // 21. बाय / Bye / Alvida / See you / Take care
+    if (
+      t.includes('बाय') ||
+      t.includes('bye') ||
+      t.includes('alvida') ||
+      t.includes('अलविदा') ||
+      t.includes('see you') ||
+      t.includes('take care')
+    ) {
+      return 'अलविदा और बहुत-बहुत धन्यवाद! अपना ध्यान रखें और केक का हर बाइट भरपूर एन्जॉय करें! 🍰✨';
+    }
+
+    // 22. तुम कौन हो / Who are you / Rahul
+    if (
+      t.includes('तुम कौन हो') ||
+      t.includes('who are you') ||
+      t.includes('kaun ho') ||
+      t.includes('rahul') ||
+      t.includes('rider') ||
+      t.includes('driver')
+    ) {
+      return 'नमस्ते! मैं राहुल शर्मा हूँ, स्वीट ब्लिस बेकरी का डेडिकेटेड डिलीवरी पार्टनर (TVS Jupiter - DL 4S CY 9821)। आपका ऑर्डर पूरी सुरक्षा से ला रहा हूँ।';
+    }
+
+    // 23. सॉरी / Sorry
+    if (t.includes('sorry') || t.includes('सॉरी') || t.includes('maaf')) {
+      return 'अरे कोई बात नहीं जी! सब बिल्कुल ठीक है। बेझिझक जो भी ज़रूरत हो बताएं। 😊';
+    }
+
+    // 24. ऑर्डर नंबर / Order id
+    if (t.includes('order') || t.includes('ऑर्डर') || t.includes('id') || t.includes('नंबर')) {
+      return 'जी, आपका ऑर्डर मेरे सिस्टम में वेरिफाइड है और मैं आपके दिए गए पते की ओर पूरे ध्यान से बढ़ रहा हूँ।';
+    }
+
+    // 25. Default friendly confirmation
+    return 'जी समझ गया सर! मैंने आपका मैसेज नोट कर लिया है और पूरी सावधानी से आपके निर्देश का पालन करूँगा। 👍';
+  };
+
   const handleSendChat = (presetText?: string) => {
     const textToSend = presetText || inputChatText.trim();
-    if (!textToSend) return;
+    if (!textToSend || isRiderTyping) return;
 
     const newMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -609,16 +923,12 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
 
     setChatMessages((prev) => [...prev, newMsg]);
     if (!presetText) setInputChatText('');
+    setIsRiderTyping(true);
+
+    const reply = getRiderSmartReply(textToSend);
 
     setTimeout(() => {
-      let reply = 'Sure sir, I will follow your instruction carefully!';
-      if (textToSend.toLowerCase().includes('bell') || textToSend.toLowerCase().includes('door')) {
-        reply = 'Understood! I will gently knock and will NOT ring the doorbell.';
-      } else if (textToSend.toLowerCase().includes('security') || textToSend.toLowerCase().includes('guard')) {
-        reply = 'Will do! Handing over to security desk with your name on the box.';
-      } else if (textToSend.toLowerCase().includes('upright') || textToSend.toLowerCase().includes('fragile')) {
-        reply = 'Don’t worry at all! Our bakery delivery box has shock-suspension; carrying it 100% horizontal.';
-      }
+      setIsRiderTyping(false);
       setChatMessages((prev) => [
         ...prev,
         {
@@ -628,7 +938,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
           time: 'Just now',
         },
       ]);
-    }, 1400);
+    }, 850);
   };
 
   const handleCopyId = () => {
@@ -1594,9 +1904,9 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                     }`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs ${
+                      className={`max-w-[82%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
                         msg.sender === 'user'
-                          ? 'bg-[#881337] text-white rounded-br-xs'
+                          ? 'bg-[#881337] text-white rounded-br-xs shadow-xs'
                           : 'bg-white text-stone-800 border border-stone-200 shadow-2xs rounded-bl-xs'
                       }`}
                     >
@@ -1605,27 +1915,87 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                     <span className="text-[10px] text-stone-400 mt-1 px-1">{msg.time}</span>
                   </div>
                 ))}
+
+                {/* Live Typing Indicator */}
+                {isRiderTyping && (
+                  <div className="flex flex-col items-start animate-in fade-in duration-200">
+                    <div className="bg-white text-stone-600 border border-rose-100 px-3.5 py-2 rounded-2xl rounded-bl-xs text-xs flex items-center gap-2 shadow-2xs">
+                      <span className="text-[11px] font-medium text-rose-800">राहुल लिख रहे हैं...</span>
+                      <span className="flex gap-1 items-center">
+                        <span className="w-1.5 h-1.5 bg-[#881337] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <span className="w-1.5 h-1.5 bg-[#881337] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <span className="w-1.5 h-1.5 bg-[#881337] rounded-full animate-bounce" />
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
               </div>
 
-              {/* Quick Preset Buttons */}
-              <div className="p-2 border-t border-stone-100 bg-white flex gap-1.5 overflow-x-auto text-[11px]">
+              {/* Quick Preset Buttons (Hindi & English) */}
+              <div className="p-2.5 border-t border-stone-100 bg-white flex gap-2 overflow-x-auto text-[11px] no-scrollbar">
                 <button
-                  onClick={() => handleSendChat('Please do NOT ring the doorbell (baby sleeping).')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer"
+                  type="button"
+                  onClick={() => handleSendChat('हाय')}
+                  className="px-2.5 py-1 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 whitespace-nowrap cursor-pointer font-medium transition-colors"
                 >
-                  🤫 Don't ring bell
+                  👋 हाय / Hi
                 </button>
                 <button
-                  onClick={() => handleSendChat('Leave the cake with apartment security guard.')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer"
+                  type="button"
+                  onClick={() => handleSendChat('डिलीवरी टाइम क्या है? कब तक आओगे?')}
+                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
                 >
-                  🛡️ Leave with guard
+                  ⏰ डिलीवरी टाइम?
                 </button>
                 <button
-                  onClick={() => handleSendChat('Please ensure the box is kept strictly flat!')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer"
+                  type="button"
+                  onClick={() => handleSendChat('आपकी लोकेशन कहाँ है?')}
+                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
                 >
-                  🎂 Keep box flat
+                  📍 लोकेशन कहाँ है?
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat('क्या केक सेफ है?')}
+                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
+                >
+                  🎂 क्या केक सेफ है?
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat('डोरबेल मत बजाना, बच्चे सो रहे हैं।')}
+                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
+                >
+                  🤫 डोरबेल मत बजाना
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat('केक अपार्टमेंट के सिक्योरिटी गार्ड को दे दीजिए।')}
+                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
+                >
+                  🛡️ गार्ड को दे दो
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat('पहुँचते ही मुझे कॉल करना।')}
+                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
+                >
+                  📞 पहुँचकर कॉल करना
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat('मैं डिलीवरी पर UPI QR से पेमेंट करूँगा।')}
+                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
+                >
+                  💵 UPI से पे करूँगा
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendChat('थैंक यू राहुल जी!')}
+                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
+                >
+                  🙏 थैंक यू
                 </button>
               </div>
 
@@ -1633,7 +2003,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
               <div className="p-3 bg-white border-t border-stone-100 flex items-center gap-2">
                 <input
                   type="text"
-                  placeholder="Type delivery note for Rahul..."
+                  placeholder="मैसेज लिखें (उदा. हाय, डिलीवरी टाइम, लोकेशन)..."
                   value={inputChatText}
                   onChange={(e) => setInputChatText(e.target.value)}
                   onKeyDown={(e) => {
@@ -1643,7 +2013,8 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                 />
                 <button
                   onClick={() => handleSendChat()}
-                  className="p-2.5 rounded-xl bg-[#881337] hover:bg-[#9F1239] text-white transition-colors cursor-pointer"
+                  disabled={isRiderTyping || !inputChatText.trim()}
+                  className="p-2.5 rounded-xl bg-[#881337] hover:bg-[#9F1239] disabled:opacity-50 text-white transition-colors cursor-pointer"
                 >
                   <Send className="w-4 h-4" />
                 </button>

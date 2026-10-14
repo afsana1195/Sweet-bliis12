@@ -1,5 +1,83 @@
 [
   {
+    "orderId": "SB-2026-7407",
+    "customer": {
+      "fullName": "Priya Sharma",
+      "phone": "9876543210",
+      "email": "priya@example.com",
+      "address": "Plot 42, Road No. 36, Jubilee Hills",
+      "pincode": "500033",
+      "city": "Hyderabad",
+      "landmark": "Call me"
+    },
+    "items": [
+      {
+        "productId": "chocolate-chip-cookies",
+        "name": "Chocolate Chip Cookies",
+        "weightKg": 0.18,
+        "price": 150,
+        "quantity": 1,
+        "isEggless": true,
+        "cakeMessage": "",
+        "flavour": "Dark Chocolate Chip"
+      }
+    ],
+    "deliveryDate": "2026-10-16",
+    "deliverySlot": "morning",
+    "paymentMethod": "Google Pay UPI",
+    "paymentStatus": "PAID",
+    "transactionId": "UPI_RR_1791945106769_3462",
+    "subtotal": 150,
+    "deliveryFee": 99,
+    "discount": 0,
+    "total": 249,
+    "orderNotes": "",
+    "createdAt": "2026-10-14T02:31:47.524Z",
+    "status": "Delivered",
+    "statusHistory": [
+      {
+        "status": "Order Placed",
+        "timestamp": "2026-10-14T02:31:47.524Z",
+        "note": "Order placed via Google Pay UPI"
+      },
+      {
+        "status": "Order Confirmed",
+        "timestamp": "2026-10-14T02:31:47.524Z",
+        "note": "Payment of ₹249 verified successfully (UPI_RR_1791945106769_3462)"
+      },
+      {
+        "status": "Preparing Your Order",
+        "timestamp": "2026-10-14T02:44:48.598Z",
+        "note": "Executive Chef is hand-whipping cream & piping rosettes"
+      },
+      {
+        "status": "Order Confirmed",
+        "timestamp": "2026-10-14T02:44:50.067Z",
+        "note": "Bakery manager accepted order & verified ingredients"
+      },
+      {
+        "status": "Out for Delivery",
+        "timestamp": "2026-10-14T02:45:02.982Z",
+        "note": "Delivery Partner Rahul Sharma picked up package on scooter (Live GPS active)"
+      },
+      {
+        "status": "Delivered",
+        "timestamp": "2026-10-14T02:45:15.115Z",
+        "note": "Rider arrived at customer doorstep. Celebrations unlocked!"
+      },
+      {
+        "status": "Delivered",
+        "timestamp": "2026-10-14T02:47:43.756Z",
+        "note": "Rider arrived at customer doorstep. Celebrations unlocked!"
+      },
+      {
+        "status": "Delivered",
+        "timestamp": "2026-10-14T02:47:44.325Z",
+        "note": "Rider arrived at customer doorstep. Celebrations unlocked!"
+      }
+    ]
+  },
+  {
     "orderId": "SB-2026-7411",
     "customer": {
       "fullName": "Ananya Sharma",

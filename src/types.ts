@@ -1,5 +1,18 @@
 import { CakeProduct } from './data/bakeryData.ts';
 
+export interface CustomerUser {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  memberTier: 'Bronze' | 'Silver' | 'Gold' | 'VIP';
+  loyaltyPoints: number;
+  createdAt: string;
+}
+
 export interface CartItem {
   id: string; // unique item id
   product: CakeProduct;

@@ -9,29 +9,29 @@ interface HeroSectionProps {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreCakes }) => {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-[#FFF5F7] via-[#FFF9F9] to-white pt-8 pb-14 md:py-16 lg:py-20">
+    <section className="relative overflow-hidden w-full max-w-full bg-gradient-to-b from-[#FFF5F7] via-[#FFF9F9] to-white pt-6 pb-12 sm:pt-8 sm:pb-14 md:py-16 lg:py-20">
       {/* Decorative floral pastel circles */}
-      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-rose-200/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -top-12 -right-12 w-96 h-96 bg-pink-100/40 rounded-full blur-2xl pointer-events-none" />
+      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[500px] sm:w-[800px] h-[300px] sm:h-[400px] bg-rose-200/20 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -top-12 -right-12 w-64 sm:w-96 h-64 sm:h-96 bg-pink-100/40 rounded-full blur-2xl pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           {/* Left Column: Headline, Copy, 4 Features, CTAs */}
-          <div className="lg:col-span-6 space-y-6 text-center lg:text-left">
+          <div className="lg:col-span-6 space-y-5 sm:space-y-6 text-center lg:text-left min-w-0">
             {/* Brand Kicker */}
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-[#9F1239] bg-rose-100/70 px-3 py-1 rounded-full">
-              <Sparkles className="w-3.5 h-3.5 text-rose-600" />
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] sm:tracking-[0.25em] text-[#9F1239] bg-rose-100/70 px-3 py-1 rounded-full">
+              <Sparkles className="w-3.5 h-3.5 text-rose-600 shrink-0" />
               <span>Sweet Bliss Patisserie</span>
             </div>
 
             {/* Main Headline with Heart */}
-            <h1 className="font-serif text-4xl sm:text-5xl lg:text-6xl text-[#881337] font-bold tracking-tight leading-[1.12]">
+            <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl text-[#881337] font-bold tracking-tight leading-[1.15] break-words">
               Life is Sweeter <br />
               <span className="inline-flex items-center gap-2 sm:gap-3">
                 With Cake
                 <span className="inline-block relative">
                   <Heart
-                    className="w-8 h-8 sm:w-11 sm:h-11 text-rose-500 fill-rose-100 stroke-[2] -rotate-12 transition-transform hover:scale-110"
+                    className="w-7 h-7 sm:w-11 sm:h-11 text-rose-500 fill-rose-100 stroke-[2] -rotate-12 transition-transform hover:scale-110"
                     aria-hidden="true"
                   />
                 </span>
@@ -39,55 +39,55 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreCakes }) => {
             </h1>
 
             {/* Supporting Copy */}
-            <p className="text-base sm:text-lg text-stone-600 max-w-xl mx-auto lg:mx-0 font-normal leading-relaxed">
+            <p className="text-sm sm:text-lg text-stone-600 max-w-xl mx-auto lg:mx-0 font-normal leading-relaxed">
               Artisan cakes for every celebration, crafted with love and the finest ingredients.
             </p>
 
             {/* 4 Feature Icons in a Neat Row (Exact match to reference mockup) */}
-            <div className="grid grid-cols-4 gap-2 sm:gap-4 py-2 border-y border-rose-100/80">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-4 py-2.5 border-y border-rose-100/80 w-full">
               {/* Feature 1: Freshly Baked */}
-              <div className="flex flex-col items-center lg:items-start text-center lg:text-left group">
-                <div className="w-10 h-10 rounded-full bg-rose-100/80 flex items-center justify-center text-[#9F1239] mb-1.5 group-hover:scale-110 transition-transform">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+              <div className="flex flex-col items-center lg:items-start text-center lg:text-left group min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-rose-100/80 flex items-center justify-center text-[#9F1239] mb-1 group-hover:scale-110 transition-transform shrink-0">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <span className="text-xs sm:text-sm font-semibold text-stone-800 leading-tight">Freshly</span>
-                <span className="text-[11px] sm:text-xs text-stone-500">Baked</span>
+                <span className="text-[11px] sm:text-sm font-semibold text-stone-800 leading-tight truncate w-full">Freshly</span>
+                <span className="text-[10px] sm:text-xs text-stone-500 truncate w-full">Baked</span>
               </div>
 
               {/* Feature 2: Premium Quality */}
-              <div className="flex flex-col items-center lg:items-start text-center lg:text-left group">
-                <div className="w-10 h-10 rounded-full bg-rose-100/80 flex items-center justify-center text-[#9F1239] mb-1.5 group-hover:scale-110 transition-transform">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+              <div className="flex flex-col items-center lg:items-start text-center lg:text-left group min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-rose-100/80 flex items-center justify-center text-[#9F1239] mb-1 group-hover:scale-110 transition-transform shrink-0">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
                   </svg>
                 </div>
-                <span className="text-xs sm:text-sm font-semibold text-stone-800 leading-tight">Premium</span>
-                <span className="text-[11px] sm:text-xs text-stone-500">Quality</span>
+                <span className="text-[11px] sm:text-sm font-semibold text-stone-800 leading-tight truncate w-full">Premium</span>
+                <span className="text-[10px] sm:text-xs text-stone-500 truncate w-full">Quality</span>
               </div>
 
               {/* Feature 3: Custom Designs */}
-              <div className="flex flex-col items-center lg:items-start text-center lg:text-left group">
-                <div className="w-10 h-10 rounded-full bg-rose-100/80 flex items-center justify-center text-[#9F1239] mb-1.5 group-hover:scale-110 transition-transform">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+              <div className="flex flex-col items-center lg:items-start text-center lg:text-left group min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-rose-100/80 flex items-center justify-center text-[#9F1239] mb-1 group-hover:scale-110 transition-transform shrink-0">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                   </svg>
                 </div>
-                <span className="text-xs sm:text-sm font-semibold text-stone-800 leading-tight">Custom</span>
-                <span className="text-[11px] sm:text-xs text-stone-500">Designs</span>
+                <span className="text-[11px] sm:text-sm font-semibold text-stone-800 leading-tight truncate w-full">Custom</span>
+                <span className="text-[10px] sm:text-xs text-stone-500 truncate w-full">Designs</span>
               </div>
 
               {/* Feature 4: Home Delivery */}
-              <div className="flex flex-col items-center lg:items-start text-center lg:text-left group">
-                <div className="w-10 h-10 rounded-full bg-rose-100/80 flex items-center justify-center text-[#9F1239] mb-1.5 group-hover:scale-110 transition-transform">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
+              <div className="flex flex-col items-center lg:items-start text-center lg:text-left group min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-rose-100/80 flex items-center justify-center text-[#9F1239] mb-1 group-hover:scale-110 transition-transform shrink-0">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.75">
                     <path d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h3l3 4v4h-2m-8 0h6" />
                   </svg>
                 </div>
-                <span className="text-xs sm:text-sm font-semibold text-stone-800 leading-tight">Home</span>
-                <span className="text-[11px] sm:text-xs text-stone-500">Delivery</span>
+                <span className="text-[11px] sm:text-sm font-semibold text-stone-800 leading-tight truncate w-full">Home</span>
+                <span className="text-[10px] sm:text-xs text-stone-500 truncate w-full">Delivery</span>
               </div>
             </div>
 

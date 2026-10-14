@@ -8,7 +8,7 @@ interface CategoryCardsProps {
 
 export const CategoryCards: React.FC<CategoryCardsProps> = ({ onSelectCategory }) => {
   return (
-    <section className="py-10 bg-white border-b border-rose-50">
+    <section className="py-10 bg-white border-b border-rose-50 w-full max-w-full overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-6">
           <div>
