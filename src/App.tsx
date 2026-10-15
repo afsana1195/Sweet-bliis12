@@ -29,6 +29,7 @@ import { Sparkles } from 'lucide-react';
 export default function App() {
   const [currentRoute, setCurrentRoute] = useState<PageRoute>('home');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedOccasion, setSelectedOccasion] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<CakeProduct | null>(null);
 
@@ -248,6 +249,60 @@ export default function App() {
     showToast('Item removed from cart');
   };
 
+  const handleReorder = (order: PlacedOrder) => {
+    if (!order.items || order.items.length === 0) {
+      showToast('No items found in this order to reorder.');
+      return;
+    }
+
+    let itemsAddedCount = 0;
+    order.items.forEach((item) => {
+      const foundProduct = PRODUCTS.find((p) => p.id === item.productId) || {
+        id: item.productId || `cake-reorder-${Date.now()}`,
+        name: item.name,
+        tagline: 'Freshly artisan baked',
+        category: 'cakes' as const,
+        categoryLabel: 'Celebration Cakes',
+        price: item.price,
+        rating: 4.9,
+        reviewsCount: 140,
+        image: '/src/assets/images/hero_celebration_cake_1791732956087.jpg',
+        badge: 'Best Seller' as const,
+        description: `Handcrafted artisan treat from past Order #${order.orderId}.`,
+        flavours: [item.flavour || 'Classic'],
+        sizes: [
+          { label: `${item.weightKg} kg`, weightKg: item.weightKg, priceMultiplier: 1 },
+        ],
+        isEggless: item.isEggless,
+        dietaryOptions: item.isEggless ? ['Eggless' as const] : ['Contains Egg' as const],
+        ingredients: ['Flour', 'Butter', 'Cream', 'Vanilla'],
+        allergens: ['Dairy', 'Gluten'],
+        prepTimeHours: 3,
+        occasions: ['Celebration' as const],
+      };
+
+      const sizeLabel =
+        foundProduct.sizes.find((s) => s.weightKg === item.weightKg)?.label ||
+        `${item.weightKg} kg`;
+
+      handleAddToCart(
+        foundProduct,
+        sizeLabel,
+        item.weightKg,
+        item.isEggless,
+        item.cakeMessage || '',
+        item.flavour || foundProduct.flavours?.[0] || 'Classic',
+        item.quantity,
+        item.price
+      );
+      itemsAddedCount += item.quantity;
+    });
+
+    setIsAccountOpen(false);
+    setIsCartOpen(true);
+    showToast(`Reordered ${itemsAddedCount} item${itemsAddedCount > 1 ? 's' : ''} from #${order.orderId}! 🍰`);
+  };
+
   const handleToggleWishlist = (productId: string) => {
     setWishlist((prev) => {
       const exists = prev.includes(productId);
@@ -300,9 +355,9 @@ export default function App() {
     <div className="min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-[#FFF9F9] text-stone-900 selection:bg-rose-200 selection:text-rose-900 font-sans">
       {/* Google Maps Quota Exceeded Banner */}
       {gmpQuotaExceeded && (
-        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
-          <span>
-            Google Maps Platform quota reached. If you are the app owner, visit{' '}
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm flex items-center justify-between gap-2">
+          <span className="flex-1 text-center">
+            Google Maps Platform quota reached. Live tracking is operating smoothly on OpenStreetMap. If you are the app owner, visit{' '}
             <a
               href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
               target="_blank"
@@ -311,8 +366,15 @@ export default function App() {
             >
               maps developer site
             </a>{' '}
-            for instructions to update your account.
+            for account instructions.
           </span>
+          <button
+            onClick={() => setGmpQuotaExceeded(false)}
+            className="text-amber-800 hover:text-amber-950 px-2 py-1 text-xs cursor-pointer font-bold rounded-lg hover:bg-amber-100"
+            title="Dismiss notification"
+          >
+            ✕
+          </button>
         </div>
       )}
 
@@ -390,11 +452,13 @@ export default function App() {
             <OccasionsSection
               onSelectOccasion={(occ) => {
                 setSelectedCategory('all');
+                setSelectedOccasion(occ);
                 setCurrentRoute('shop');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
               onExploreCollection={() => {
                 setSelectedCategory('all');
+                setSelectedOccasion('all');
                 setCurrentRoute('shop');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
@@ -407,6 +471,8 @@ export default function App() {
             products={PRODUCTS}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
+            selectedOccasion={selectedOccasion}
+            onSelectOccasion={setSelectedOccasion}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             wishlist={wishlist}
@@ -552,6 +618,7 @@ export default function App() {
             setCurrentUser(user);
             localStorage.setItem('sb_user', JSON.stringify(user));
           }}
+          onReorder={handleReorder}
         />
       )}
 

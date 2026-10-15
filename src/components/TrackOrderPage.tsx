@@ -38,8 +38,6 @@ import {
   Layers,
   Crosshair,
   Maximize2,
-  Key,
-  Settings2,
   Globe,
   ExternalLink,
 } from 'lucide-react';
@@ -236,16 +234,19 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
   const [errorMsg, setErrorMsg] = useState('');
   const [trackedOrder, setTrackedOrder] = useState<PlacedOrder | null>(null);
 
-  // Google Maps API Key State
-  const defaultApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) || 'AIzaSyCUMcEreJEEQesdc6yVQkGEIyY7oysp3PE';
-  const [apiKey, setApiKey] = useState<string>(() => {
-    return localStorage.getItem('sb_gmp_api_key') || defaultApiKey;
-  });
+  // Google Maps API Key & Provider State
+  const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) || 'AIzaSyCUMcEreJEEQesdc6yVQkGEIyY7oysp3PE';
   const [mapProvider, setMapProvider] = useState<'google' | 'leaflet'>('google');
   const [googleMapType, setGoogleMapType] = useState<'roadmap' | 'hybrid' | 'terrain'>('roadmap');
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
-  const [tempApiKeyInput, setTempApiKeyInput] = useState(apiKey);
-  const [keySavedToast, setKeySavedToast] = useState(false);
+
+  // Automatic seamless fallback to Leaflet OSM if Google Maps quota is reached or auth fails
+  useEffect(() => {
+    const handleQuotaExceeded = () => {
+      setMapProvider('leaflet');
+    };
+    window.addEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+    return () => window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+  }, []);
 
   // Camera triggers for Google Map
   const [recenterCount, setRecenterCount] = useState(0);
@@ -256,7 +257,6 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
   const [riderProgress, setRiderProgress] = useState(0.35); // 0 (Bakery) to 1 (Destination)
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'detailed'>('streets');
   const [copiedId, setCopiedId] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
 
   // Rider Interaction Modals
   const [showCallModal, setShowCallModal] = useState(false);
@@ -546,23 +546,6 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
       mapInstanceRef.current.panTo(riderCoords, { animate: true, duration: 1.2 });
     }
   }, [riderProgress, isSimulating, mapProvider]);
-
-  // Save new API Key
-  const handleSaveApiKey = () => {
-    const cleaned = tempApiKeyInput.trim();
-    if (!cleaned) return;
-    setApiKey(cleaned);
-    localStorage.setItem('sb_gmp_api_key', cleaned);
-    setShowApiKeyModal(false);
-    setKeySavedToast(true);
-    setTimeout(() => setKeySavedToast(false), 3000);
-  };
-
-  const handleCopyApiKey = () => {
-    navigator.clipboard.writeText(apiKey);
-    setCopiedKey(true);
-    setTimeout(() => setCopiedKey(false), 2000);
-  };
 
   // Center on Rider Action
   const handleCenterOnRider = () => {
@@ -1011,14 +994,6 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
           </form>
         </div>
 
-        {/* Key Saved Toast */}
-        {keySavedToast && (
-          <div className="bg-emerald-700 text-white px-4 py-3 rounded-2xl shadow-lg flex items-center gap-3 text-sm animate-in fade-in slide-in-from-top-2">
-            <CheckCircle2 className="w-5 h-5 shrink-0" />
-            <span>Google Maps API key saved successfully and map reloaded!</span>
-          </div>
-        )}
-
         {/* Error Alert */}
         {errorMsg && (
           <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between gap-3">
@@ -1168,18 +1143,12 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-stone-900 text-xs sm:text-sm">
-                        Google Maps Live Delivery Radar
+                        Live Delivery Tracking Radar
                       </h3>
-                      {mapProvider === 'google' ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Google Maps API Active
-                        </span>
-                      ) : (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">
-                          Leaflet OSM Mode
-                        </span>
-                      )}
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Live GPS Active
+                      </span>
                     </div>
                     <p className="text-[11px] text-stone-500">
                       From: <strong>Sweet Bliss Bakery (Somajiguda)</strong> → To: <strong>{trackedOrder.customer.address}, {trackedOrder.customer.city}</strong>
@@ -1188,31 +1157,16 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* Google Maps API Key Badge & Settings Button */}
-                  <button
-                    onClick={() => {
-                      setTempApiKeyInput(apiKey);
-                      setShowApiKeyModal(true);
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-[#881337] text-xs font-semibold hover:bg-rose-100 transition-colors cursor-pointer"
-                    title="View or Change Google Maps API Key"
-                  >
-                    <Key className="w-3.5 h-3.5 text-[#881337]" />
-                    <span className="font-mono text-[11px]">
-                      {apiKey.slice(0, 8)}...{apiKey.slice(-4)}
-                    </span>
-                    <Settings2 className="w-3 h-3 text-stone-500" />
-                  </button>
-
                   {/* Provider & Style Switcher */}
                   <div className="flex bg-white rounded-xl border border-stone-200 p-0.5 shadow-2xs">
                     <button
                       onClick={() => {
                         setMapProvider('google');
                         setGoogleMapType('roadmap');
+                        setMapStyle('streets');
                       }}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${
-                        mapProvider === 'google' && googleMapType === 'roadmap'
+                        (mapProvider === 'google' && googleMapType === 'roadmap') || (mapProvider === 'leaflet' && mapStyle === 'streets')
                           ? 'bg-[#881337] text-white'
                           : 'text-stone-600 hover:text-stone-900'
                       }`}
@@ -1223,9 +1177,10 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                       onClick={() => {
                         setMapProvider('google');
                         setGoogleMapType('hybrid');
+                        setMapStyle('satellite');
                       }}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${
-                        mapProvider === 'google' && googleMapType === 'hybrid'
+                        (mapProvider === 'google' && googleMapType === 'hybrid') || (mapProvider === 'leaflet' && mapStyle === 'satellite')
                           ? 'bg-[#881337] text-white'
                           : 'text-stone-600 hover:text-stone-900'
                       }`}
@@ -1234,21 +1189,11 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                     </button>
                     <button
                       onClick={() => {
-                        setMapProvider('google');
-                        setGoogleMapType('terrain');
+                        setMapProvider('leaflet');
+                        setMapStyle('detailed');
                       }}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${
-                        mapProvider === 'google' && googleMapType === 'terrain'
-                          ? 'bg-[#881337] text-white'
-                          : 'text-stone-600 hover:text-stone-900'
-                      }`}
-                    >
-                      ⛰️ Terrain
-                    </button>
-                    <button
-                      onClick={() => setMapProvider('leaflet')}
-                      className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${
-                        mapProvider === 'leaflet'
+                        mapProvider === 'leaflet' && mapStyle === 'detailed'
                           ? 'bg-[#881337] text-white'
                           : 'text-stone-600 hover:text-stone-900'
                       }`}
@@ -1733,90 +1678,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
           </div>
         )}
 
-        {/* ================= MODAL: GOOGLE MAPS API KEY SETTINGS ================= */}
-        {showApiKeyModal && (
-          <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-rose-100 space-y-5 animate-in fade-in zoom-in-95 duration-200">
-              <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-2xl bg-rose-100 text-[#881337] flex items-center justify-center">
-                    <Key className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-stone-900 text-base">Google Maps Platform API Key</h3>
-                    <p className="text-xs text-stone-500">Active API key configuration & BYOK settings</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowApiKeyModal(false)}
-                  className="p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
 
-              {/* Status explanation */}
-              <div className="bg-rose-50/80 border border-rose-200 rounded-2xl p-4 text-xs space-y-2 text-[#881337]">
-                <div className="flex items-center gap-2 font-bold">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>Google Maps API Key सफलतापूर्वक सक्रिय (Active) है!</span>
-                </div>
-                <p className="leading-relaxed text-stone-700">
-                  यह API Key लाइव डिलीवरी मैप, हैदराबाद की सड़कों, सैटेलाइट व्यू और राइडर के जीपीएस को पॉवर करती है। आप इस की का उपयोग कर सकते हैं या अपनी खुद की Google Cloud API Key भी नीचे दर्ज कर सकते हैं।
-                </p>
-              </div>
-
-              {/* Active Key Display */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-stone-700">Active Google Maps API Key:</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={tempApiKeyInput}
-                    onChange={(e) => setTempApiKeyInput(e.target.value)}
-                    placeholder="AIzaSy..."
-                    className="flex-1 font-mono text-xs px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 focus:outline-none focus:ring-2 focus:ring-[#881337]"
-                  />
-                  <button
-                    onClick={handleCopyApiKey}
-                    className="px-3 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0"
-                    title="Copy API Key"
-                  >
-                    {copiedKey ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedKey ? 'Copied!' : 'Copy'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 flex items-center justify-between gap-3">
-                <button
-                  onClick={() => {
-                    setTempApiKeyInput(defaultApiKey);
-                  }}
-                  className="text-xs text-stone-500 hover:text-[#881337] underline cursor-pointer"
-                >
-                  Reset to Project Default Key
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowApiKeyModal(false)}
-                    className="px-4 py-2 rounded-xl text-stone-600 text-xs font-semibold hover:bg-stone-100 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveApiKey}
-                    className="px-5 py-2.5 rounded-xl bg-[#881337] text-white text-xs font-bold hover:bg-[#9F1239] shadow-sm cursor-pointer"
-                  >
-                    Save & Reload Map
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* ================= MODAL: CALL RIDER SIMULATION ================= */}
         {showCallModal && (

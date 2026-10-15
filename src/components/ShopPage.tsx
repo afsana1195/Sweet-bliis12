@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Search, Heart, ShoppingBag, Filter, ArrowUpDown } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Search, Heart, ShoppingBag, Filter, ArrowUpDown, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { CakeProduct, CAKE_CATEGORIES } from '../data/bakeryData.ts';
 
 interface ShopPageProps {
@@ -21,6 +21,8 @@ interface ShopPageProps {
     calculatedPrice?: number,
     variantName?: string
   ) => void;
+  selectedOccasion?: string;
+  onSelectOccasion?: (occ: string) => void;
   onSelectProduct: (product: CakeProduct) => void;
 }
 
@@ -28,6 +30,8 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   products,
   selectedCategory,
   onSelectCategory,
+  selectedOccasion: propSelectedOccasion,
+  onSelectOccasion: propOnSelectOccasion,
   searchQuery,
   onSearchChange,
   wishlist,
@@ -35,16 +39,50 @@ export const ShopPage: React.FC<ShopPageProps> = ({
   onAddToCart,
   onSelectProduct,
 }) => {
-  const [selectedOccasion, setSelectedOccasion] = useState<string>('all');
+  const [internalOccasion, setInternalOccasion] = useState<string>('all');
+  const selectedOccasion = propSelectedOccasion !== undefined ? propSelectedOccasion : internalOccasion;
+  const setSelectedOccasion = (occ: string) => {
+    if (propOnSelectOccasion) {
+      propOnSelectOccasion(occ);
+    } else {
+      setInternalOccasion(occ);
+    }
+  };
+
   const [sortBy, setSortBy] = useState<'featured' | 'price-low' | 'price-high' | 'rating'>('featured');
   const [egglessOnly, setEgglessOnly] = useState<boolean>(false);
-  const [maxPrice, setMaxPrice] = useState<number>(3000);
+  const [maxPrice, setMaxPrice] = useState<number>(10000);
+
+  // Pagination State - 8 products per page creates 6 to 7 pages of cakes!
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(8);
+  const gridTopRef = useRef<HTMLDivElement | null>(null);
 
   // Dynamic selection maps for cards
   const [sizeIndexMap, setSizeIndexMap] = useState<Record<string, number>>({});
   const [variantIndexMap, setVariantIndexMap] = useState<Record<string, number>>({});
 
-  const occasions = ['Birthday', 'Anniversary', 'Wedding', 'Celebration', 'Kids'];
+  const occasions = [
+    { id: 'Friendship Day', label: '👫 Friendship Day (फ्रेंडशिप डे)' },
+    { id: "Mother's Day", label: "💐 Mother's Day (मदर्स डे)" },
+    { id: 'Independence Day', label: '🇮🇳 Independence Day (इंडिपेंडेंस डे)' },
+    { id: "Father's Day", label: "🎩 Father's Day (फादर्स डे)" },
+    { id: 'Raksha Bandhan', label: '🪔 Raksha Bandhan (रक्षा बंधन)' },
+    { id: 'Festival', label: '✨ Festive & Holidays (त्योहार)' },
+    { id: 'Birthday', label: '🎂 Birthday Cakes (जन्मदिन)' },
+    { id: 'Anniversary', label: '💍 Anniversary & Romance (सालगिरह)' },
+    { id: 'Romantic', label: '💖 Romance & Valentine (रोमांस)' },
+    { id: 'Kids', label: '🦄 Kids & Cartoon (बच्चों के लिए)' },
+    { id: "Teacher's Day", label: "🎓 Teacher's Day (शिक्षक दिवस)" },
+    { id: 'Baby Shower', label: '🍼 Baby Shower' },
+    { id: 'Wedding', label: '💒 Grand Wedding (विवाह)' },
+    { id: 'Celebration', label: '🎉 Special Celebrations' },
+  ];
+
+  // Reset to page 1 on filter or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, selectedOccasion, searchQuery, egglessOnly, maxPrice, sortBy]);
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
@@ -53,7 +91,12 @@ export const ShopPage: React.FC<ShopPageProps> = ({
         // Category filter
         if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
         // Occasion filter
-        if (selectedOccasion !== 'all' && !p.occasions.includes(selectedOccasion as any)) return false;
+        if (
+          selectedOccasion !== 'all' &&
+          !p.occasions.some((o) => o.toLowerCase() === selectedOccasion.toLowerCase())
+        ) {
+          return false;
+        }
         // Search query
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
@@ -62,6 +105,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
             p.tagline.toLowerCase().includes(q) ||
             p.categoryLabel.toLowerCase().includes(q) ||
             p.flavours.some((f) => f.toLowerCase().includes(q)) ||
+            p.occasions.some((o) => o.toLowerCase().includes(q)) ||
             (p.productVariants && p.productVariants.some((v) => v.name.toLowerCase().includes(q)));
           if (!matches) return false;
         }
@@ -78,6 +122,21 @@ export const ShopPage: React.FC<ShopPageProps> = ({
         return 0; // featured default
       });
   }, [products, selectedCategory, selectedOccasion, searchQuery, maxPrice, egglessOnly, sortBy]);
+
+  // Total pages and sliced products for current page
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProducts, currentPage, itemsPerPage]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages) return;
+    setCurrentPage(newPage);
+    if (gridTopRef.current) {
+      gridTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   const handleCardAddToCart = (p: CakeProduct, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -173,26 +232,30 @@ export const ShopPage: React.FC<ShopPageProps> = ({
 
           {/* Occasions Filter Chips */}
           <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto">
-            <span className="text-xs font-semibold text-stone-500 mr-1 flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5" /> Occasion:
+            <span className="text-xs font-semibold text-stone-500 mr-1 flex items-center gap-1 shrink-0">
+              <Filter className="w-3.5 h-3.5" /> Occasions:
             </span>
             <button
               onClick={() => setSelectedOccasion('all')}
-              className={`px-2.5 py-1 text-xs rounded-lg transition-colors cursor-pointer ${
-                selectedOccasion === 'all' ? 'bg-rose-100 text-[#881337] font-bold' : 'text-stone-600 hover:bg-stone-100'
+              className={`px-3 py-1.5 text-xs rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+                selectedOccasion === 'all'
+                  ? 'bg-[#881337] text-white font-bold shadow-2xs'
+                  : 'text-stone-600 hover:bg-stone-100 bg-stone-50'
               }`}
             >
-              All
+              All Occasions
             </button>
             {occasions.map((occ) => (
               <button
-                key={occ}
-                onClick={() => setSelectedOccasion(occ)}
-                className={`px-2.5 py-1 text-xs rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
-                  selectedOccasion === occ ? 'bg-rose-100 text-[#881337] font-bold' : 'text-stone-600 hover:bg-stone-100'
+                key={occ.id}
+                onClick={() => setSelectedOccasion(occ.id)}
+                className={`px-3 py-1.5 text-xs rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+                  selectedOccasion === occ.id
+                    ? 'bg-[#881337] text-white font-bold shadow-2xs'
+                    : 'text-stone-600 hover:bg-stone-100 bg-stone-50'
                 }`}
               >
-                {occ}
+                {occ.label}
               </button>
             ))}
           </div>
@@ -225,10 +288,15 @@ export const ShopPage: React.FC<ShopPageProps> = ({
           </div>
         </div>
 
-        {/* Results Count Banner */}
-        <div className="flex items-center justify-between text-xs text-stone-500 mb-6">
+        {/* Results Count Banner & Scroll Anchor */}
+        <div ref={gridTopRef} className="flex items-center justify-between text-xs text-stone-500 mb-6 scroll-mt-24">
           <span>
-            Showing <strong className="text-stone-800">{filteredProducts.length}</strong> items in collection
+            Showing <strong className="text-stone-800">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)}–{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> of <strong className="text-stone-800">{filteredProducts.length}</strong> items in collection
+            {totalPages > 1 && (
+              <span className="ml-2 font-medium text-[#881337] bg-rose-50 px-2 py-0.5 rounded-full">
+                Page {currentPage} of {totalPages}
+              </span>
+            )}
           </span>
           {(selectedCategory !== 'all' || selectedOccasion !== 'all' || searchQuery || egglessOnly) && (
             <button
@@ -268,7 +336,7 @@ export const ShopPage: React.FC<ShopPageProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((p) => {
+            {paginatedProducts.map((p) => {
               const isWishlisted = wishlist.includes(p.id);
 
               // Variant calculation
@@ -422,6 +490,104 @@ export const ShopPage: React.FC<ShopPageProps> = ({
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Pagination Navigation Bar */}
+        {filteredProducts.length > 0 && totalPages > 1 && (
+          <div className="mt-12 pt-8 border-t border-rose-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-stone-600">
+              <span>
+                Showing <strong className="text-stone-900 font-semibold">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredProducts.length)}</strong>–<strong className="text-stone-900 font-semibold">{Math.min(currentPage * itemsPerPage, filteredProducts.length)}</strong> of <strong className="text-stone-900 font-semibold">{filteredProducts.length}</strong> items
+              </span>
+              <span className="text-stone-300">|</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-stone-500">Per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="bg-white border border-stone-200 rounded-lg px-2 py-1 text-xs font-semibold text-stone-700 cursor-pointer focus:outline-none focus:border-rose-400"
+                >
+                  <option value={8}>8 per page</option>
+                  <option value={12}>12 per page</option>
+                  <option value={16}>16 per page</option>
+                  <option value={24}>24 per page</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Page number buttons */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                aria-label="Previous Page"
+                className={`flex items-center gap-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                  currentPage === 1
+                    ? 'border-stone-200 text-stone-300 cursor-not-allowed bg-stone-50'
+                    : 'border-rose-200 text-stone-700 hover:bg-rose-50 hover:text-[#881337] active:scale-95'
+                }`}
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Prev</span>
+              </button>
+
+              {/* Numbered page buttons with intelligent windowing */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) => {
+                  if (totalPages <= 7) return true;
+                  if (page === 1 || page === totalPages) return true;
+                  if (Math.abs(page - currentPage) <= 1) return true;
+                  return false;
+                })
+                .reduce<(number | string)[]>((acc, page, idx, arr) => {
+                  if (idx > 0 && page - (arr[idx - 1] as number) > 1) {
+                    acc.push(`ellipsis-${page}`);
+                  }
+                  acc.push(page);
+                  return acc;
+                }, [])
+                .map((item) => {
+                  if (typeof item === 'string') {
+                    return (
+                      <span key={item} className="px-1.5 text-stone-400 text-xs font-bold">
+                        ...
+                      </span>
+                    );
+                  }
+                  const isCurrent = item === currentPage;
+                  return (
+                    <button
+                      key={item}
+                      onClick={() => handlePageChange(item)}
+                      className={`min-w-9 h-9 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        isCurrent
+                          ? 'bg-[#881337] text-white shadow-xs'
+                          : 'border border-rose-100 text-stone-700 hover:bg-rose-50 hover:text-[#881337]'
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  );
+                })}
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                aria-label="Next Page"
+                className={`flex items-center gap-1 px-3 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                  currentPage === totalPages
+                    ? 'border-stone-200 text-stone-300 cursor-not-allowed bg-stone-50'
+                    : 'border-rose-200 text-stone-700 hover:bg-rose-50 hover:text-[#881337] active:scale-95'
+                }`}
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>
