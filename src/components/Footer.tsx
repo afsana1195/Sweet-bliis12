@@ -461,7 +461,7 @@ export const Footer: React.FC<FooterProps> = ({
             <span className="flex items-center gap-1 text-rose-300">
               <span>Made with</span>
               <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
-              <span>in Hyderabad</span>
+              <span>in Bangalore, Karnataka</span>
             </span>
           </div>
         </div>

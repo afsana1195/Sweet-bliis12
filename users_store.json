@@ -1,0 +1,15 @@
+[
+  {
+    "id": "user_demo_101",
+    "name": "Ananya Rao",
+    "email": "ananya@example.com",
+    "phone": "9876543210",
+    "passwordHash": "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791",
+    "address": "Villa 14, Surya City Phase 1, Chandapura",
+    "city": "Bangalore",
+    "pincode": "562162",
+    "memberTier": "Gold",
+    "loyaltyPoints": 340,
+    "createdAt": "2026-10-15T22:26:28.754Z"
+  }
+]

@@ -18,10 +18,19 @@ import {
   ListOrdered,
   FileSpreadsheet,
   Download,
+  ShoppingBag,
+  Settings,
+  Printer,
+  MessageCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { PlacedOrder, PageRoute } from '../types.ts';
 import { AdminPerformanceDashboard } from './AdminPerformanceDashboard.tsx';
 import { AdminReportExportModal } from './AdminReportExportModal.tsx';
+import { AdminMenuManager } from './AdminMenuManager.tsx';
+import { AdminStoreSettings } from './AdminStoreSettings.tsx';
+import { getOwnerNewOrderWhatsAppUrl, getCustomerOrderConfirmationWhatsAppUrl } from '../utils/whatsapp.ts';
+import { BUSINESS_CONFIG } from '../data/bakeryData.ts';
 
 interface AdminOrderPageProps {
   onNavigate: (route: PageRoute) => void;
@@ -37,7 +46,7 @@ const STAGES = [
 ];
 
 export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) => {
-  const [adminView, setAdminView] = useState<'analytics' | 'queue'>('analytics');
+  const [adminView, setAdminView] = useState<'analytics' | 'queue' | 'menu' | 'settings'>('analytics');
   const [adminKey, setAdminKey] = useState(() => {
     return localStorage.getItem('sb_admin_key') || 'sweetbliss-admin-2026';
   });
@@ -269,35 +278,57 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) =>
           </div>
         )}
 
-        {/* View Switcher: Order Performance Analytics vs Kitchen Order Queue */}
+        {/* View Switcher: 4 Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-rose-100 shadow-2xs">
+          <div className="flex flex-wrap items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-rose-100 shadow-2xs">
             <button
               onClick={() => setAdminView('analytics')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 adminView === 'analytics'
                   ? 'bg-[#881337] text-white shadow-xs'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              <span>Order Performance & Trends</span>
+              <span>Performance</span>
             </button>
             <button
               onClick={() => setAdminView('queue')}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 adminView === 'queue'
                   ? 'bg-[#881337] text-white shadow-xs'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
               }`}
             >
               <ListOrdered className="w-4 h-4" />
-              <span>Kitchen Queue & Status ({orders.length})</span>
+              <span>Kitchen Queue ({orders.length})</span>
+            </button>
+            <button
+              onClick={() => setAdminView('menu')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                adminView === 'menu'
+                  ? 'bg-[#881337] text-white shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span>Menu & Stock Control</span>
+            </button>
+            <button
+              onClick={() => setAdminView('settings')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                adminView === 'settings'
+                  ? 'bg-[#881337] text-white shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Bakery Settings (Bangalore)</span>
             </button>
           </div>
 
           <div className="text-xs text-stone-500 font-medium">
-            Logged in as Bakery Owner • Real-Time Database Sync
+            Chef Jyoti Tanti • Bangalore Hub (562162)
           </div>
         </div>
 
@@ -517,6 +548,29 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) =>
                       </button>
                     </div>
 
+                    {/* Instant WhatsApp Action Triggers */}
+                    <div className="pt-2 space-y-1.5">
+                      <a
+                        href={getOwnerNewOrderWhatsAppUrl(selectedOrder)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-2 px-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-stone-900 font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>Send Alert to Chef Jyoti on WhatsApp</span>
+                      </a>
+
+                      <a
+                        href={getCustomerOrderConfirmationWhatsAppUrl(selectedOrder)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>WhatsApp Customer Tracking Link</span>
+                      </a>
+                    </div>
+
                     <button
                       onClick={() => setCancelModalOpen(true)}
                       className="w-full mt-2 py-2 rounded-xl border border-rose-300 text-rose-700 hover:bg-rose-50 text-xs font-bold cursor-pointer"
@@ -564,15 +618,29 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate }) =>
       </div>
     )}
 
-      {/* Order Reports & CSV Export Modal */}
-      <AdminReportExportModal
-        isOpen={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        orders={orders}
-        currentStatusFilter={statusFilter}
-        adminKey={adminKey}
-      />
-    </div>
+    {/* ================= VIEW 3: MENU & STOCK MANAGEMENT ================= */}
+    {adminView === 'menu' && (
+      <div className="animate-in fade-in duration-200">
+        <AdminMenuManager adminKey={adminKey} />
+      </div>
+    )}
+
+    {/* ================= VIEW 4: STORE & BANGALORE SETTINGS ================= */}
+    {adminView === 'settings' && (
+      <div className="animate-in fade-in duration-200">
+        <AdminStoreSettings adminKey={adminKey} />
+      </div>
+    )}
   </div>
+
+  {/* Order Reports & CSV Export Modal */}
+  <AdminReportExportModal
+    isOpen={exportModalOpen}
+    onClose={() => setExportModalOpen(false)}
+    orders={orders}
+    currentStatusFilter={statusFilter}
+    adminKey={adminKey}
+  />
+</div>
 );
 };

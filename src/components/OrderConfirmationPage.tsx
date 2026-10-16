@@ -2,6 +2,7 @@ import React from 'react';
 import { CheckCircle2, MessageCircle, Printer, ArrowRight, Clock, MapPin, Sparkles } from 'lucide-react';
 import { PlacedOrder, PageRoute } from '../types.ts';
 import { BUSINESS_CONFIG } from '../data/bakeryData.ts';
+import { getOwnerNewOrderWhatsAppUrl } from '../utils/whatsapp.ts';
 
 interface OrderConfirmationPageProps {
   order: PlacedOrder | null;
@@ -195,13 +196,13 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
             </button>
 
             <a
-              href={getWhatsAppShareUrl()}
+              href={getOwnerNewOrderWhatsAppUrl(order)}
               target="_blank"
               rel="noopener noreferrer"
               className="py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-stone-900 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors"
             >
               <MessageCircle className="w-4 h-4" />
-              <span>WhatsApp</span>
+              <span>Send Order to Chef Jyoti</span>
             </a>
 
             <button
@@ -209,7 +210,7 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
               className="py-3 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs flex items-center justify-center gap-2 cursor-pointer transition-colors"
             >
               <Printer className="w-4 h-4" />
-              <span>Print Receipt</span>
+              <span>Print Invoice</span>
             </button>
 
             <button

@@ -25,6 +25,7 @@ import { PrivacyTermsPage } from './components/PrivacyTermsPage.tsx';
 import { PRODUCTS, CakeProduct } from './data/bakeryData.ts';
 import { CartItem, PageRoute, PlacedOrder, CustomerUser } from './types.ts';
 import { Sparkles } from 'lucide-react';
+import { updateProductMetaTags } from './utils/seo.ts';
 
 export default function App() {
   const [currentRoute, setCurrentRoute] = useState<PageRoute>('home');
@@ -50,6 +51,44 @@ export default function App() {
       return null;
     }
   });
+
+  // Initialize and handle direct product deep-link (?product=... or ?cake=...)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const productId = params.get('product') || params.get('cake');
+      if (productId) {
+        const found = PRODUCTS.find((p) => p.id === productId);
+        if (found) {
+          setSelectedProduct(found);
+        }
+      }
+    } catch (e) {
+      console.warn('Deep link parsing error:', e);
+    }
+  }, []);
+
+  // Dynamically update document title, description, OpenGraph, Twitter, and Schema.org structured data
+  useEffect(() => {
+    updateProductMetaTags(selectedProduct);
+
+    // Sync URL query parameter without page reload
+    try {
+      const url = new URL(window.location.href);
+      if (selectedProduct) {
+        url.searchParams.set('product', selectedProduct.id);
+        window.history.replaceState({}, '', url.toString());
+      } else {
+        if (url.searchParams.has('product') || url.searchParams.has('cake')) {
+          url.searchParams.delete('product');
+          url.searchParams.delete('cake');
+          window.history.replaceState({}, '', url.toString());
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  }, [selectedProduct]);
 
   // Load and refresh user session from server if token exists
   useEffect(() => {

@@ -94,7 +94,7 @@ export const ContactPage: React.FC = () => {
             <div className="bg-rose-50/70 rounded-3xl p-6 border border-rose-100 text-xs text-stone-700 space-y-2">
               <strong className="text-stone-900 font-bold block">Active Express Delivery Pincodes:</strong>
               <p className="text-stone-500 text-[11px] leading-relaxed">
-                {BUSINESS_CONFIG.deliveryPincodes.join(', ')} and surrounding Hyderabad metropolitan zones.
+                {BUSINESS_CONFIG.deliveryPincodes.join(', ')} and surrounding Bangalore metropolitan zones.
               </p>
             </div>
           </div>

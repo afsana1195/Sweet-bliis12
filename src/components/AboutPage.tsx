@@ -31,7 +31,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
               From an Artisan Kitchen to Life’s Grand Stages
             </h2>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
-              Sweet Bliss was born in Jubilee Hills with a singular, unwavering mission: to eliminate artificial premixes and factory shortcuts from celebration cakes. Every creation begins with certified pure European dairy butter, 55% Belgian single-origin chocolate, and organic Tahitian vanilla pods.
+              Sweet Bliss by Chef Jyoti Tanti was established in Bangalore (Karnataka) with a singular, unwavering mission: to eliminate artificial premixes and factory shortcuts from celebration cakes. Every creation begins with certified pure European dairy butter, 55% Belgian single-origin chocolate, and organic Tahitian vanilla pods.
             </p>
             <p className="text-xs sm:text-sm text-stone-600 leading-relaxed">
               Our team of master pastry chefs and floral designers meticulously handcraft every tier, delicate lace ruffle, and sugar bloom. Whether you require a whimsical 1st birthday drip cake or a 5-tier royal wedding masterpiece, each confection is baked fresh to order on the day of delivery.

@@ -86,3 +86,83 @@ export function getCustomCakeWhatsAppUrl(details: {
 
   return `https://wa.me/${BUSINESS_CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`;
 }
+
+export function getOwnerNewOrderWhatsAppUrl(order: {
+  orderId: string;
+  customer: {
+    fullName: string;
+    phone: string;
+    address: string;
+    city: string;
+    pincode: string;
+    landmark?: string;
+  };
+  items: Array<{
+    name: string;
+    quantity: number;
+    weightKg: number;
+    price: number;
+    isEggless: boolean;
+    cakeMessage?: string;
+  }>;
+  total: number;
+  deliveryDate: string;
+  deliverySlot: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  orderNotes?: string;
+}): string {
+  let text = `🚨 *NEW CAKE ORDER RECEIVED — SWEET BLISS*\n\n`;
+  text += `*Order ID:* ${order.orderId}\n`;
+  text += `*Owner Alert:* Chef Jyoti Tanti\n`;
+  text += `*Delivery Date:* ${order.deliveryDate} (${order.deliverySlot})\n`;
+  text += `*Payment:* ${order.paymentMethod} (${order.paymentStatus})\n`;
+  text += `*Total Amount:* ₹${order.total}\n\n`;
+  text += `👤 *Customer Details:*\n`;
+  text += `• Name: ${order.customer.fullName}\n`;
+  text += `• Phone: +91 ${order.customer.phone}\n`;
+  text += `• Address: ${order.customer.address}, ${order.customer.city} - ${order.customer.pincode}\n`;
+  if (order.customer.landmark) text += `• Landmark: ${order.customer.landmark}\n`;
+  text += `\n🎂 *Ordered Items:*\n`;
+  order.items.forEach((item, i) => {
+    text += `${i + 1}. ${item.name} (${item.weightKg} kg x${item.quantity}) - ₹${item.price * item.quantity}\n`;
+    text += `   [${item.isEggless ? '100% Eggless' : 'With Egg'}]\n`;
+    if (item.cakeMessage) text += `   Piping Text: "${item.cakeMessage}"\n`;
+  });
+  if (order.orderNotes) {
+    text += `\n📝 *Kitchen Instructions:* ${order.orderNotes}\n`;
+  }
+  const trackingUrl = typeof window !== 'undefined' ? `${window.location.origin}/#track-${order.orderId}` : '';
+  if (trackingUrl) {
+    text += `\n📍 *Live Tracking Link:* ${trackingUrl}\n`;
+  }
+  text += `\nPlease accept and commence kitchen preparation!`;
+
+  return `https://wa.me/${BUSINESS_CONFIG.whatsappNumber}?text=${encodeURIComponent(text)}`;
+}
+
+export function getCustomerOrderConfirmationWhatsAppUrl(order: {
+  orderId: string;
+  customer: {
+    fullName: string;
+    phone: string;
+  };
+  total: number;
+  deliveryDate: string;
+  deliverySlot: string;
+}): string {
+  const trackingUrl = typeof window !== 'undefined' ? `${window.location.origin}/#track-${order.orderId}` : '';
+  let text = `🎉 *Sweet Bliss by Jyoti Tanti — Order Confirmed!*\n\n`;
+  text += `Dear ${order.customer.fullName},\n`;
+  text += `Thank you for choosing Sweet Bliss! Chef Jyoti Tanti and our artisan pastry kitchen have confirmed your order.\n\n`;
+  text += `*Order ID:* ${order.orderId}\n`;
+  text += `*Scheduled Delivery:* ${order.deliveryDate} (${order.deliverySlot} Slot)\n`;
+  text += `*Amount:* ₹${order.total} (Free Delivery)\n\n`;
+  if (trackingUrl) {
+    text += `🛵 *Live GPS Tracking & Kitchen Progress:* \n${trackingUrl}\n\n`;
+  }
+  text += `For any immediate customizations, WhatsApp Chef Jyoti at +91 ${BUSINESS_CONFIG.phone}. Have a sweet celebration! 🍰✨`;
+
+  const cleanCustomerPhone = order.customer.phone.replace(/\D/g, '').slice(-10);
+  return `https://wa.me/91${cleanCustomerPhone}?text=${encodeURIComponent(text)}`;
+}

@@ -67,7 +67,7 @@ const DEFAULT_RIDER: DeliveryPartner = {
   rating: 4.9,
   totalDeliveries: 1480,
   vehicle: 'Electric Eco-Scooter (Refrigerated Cake Carrier)',
-  vehicleNumber: 'TS 09 SB 2026',
+  vehicleNumber: 'KA 51 SB 2026',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
   temperatureChecked: true,
   maskVerified: true,
@@ -131,26 +131,24 @@ interface ChatMessage {
   time: string;
 }
 
-// Real Hyderabad Geographic Coordinates:
-// Origin: Sweet Bliss Artisan Bakery, Somajiguda / Banjara Hills Rd 1, Hyderabad
-// Destination: Lotus Road / Lotus Pond, Banjara Hills, Hyderabad
-const BAKERY_COORDS: [number, number] = [17.4265, 78.4520];
-const DESTINATION_COORDS: [number, number] = [17.4258, 78.4110];
+// Real Bangalore Geographic Coordinates (Chandapura - Electronic City, Bangalore 562162):
+// Origin: Sweet Bliss Patisserie by Jyoti Tanti, Chandapura Main Rd, Bangalore 562162
+// Destination: Customer Residence, Electronic City Phase 2 / Chandapura, Bangalore
+const BAKERY_COORDS: [number, number] = [12.7932, 77.6975];
+const DESTINATION_COORDS: [number, number] = [12.8460, 77.6550];
 
-// Detailed Real Road Coordinates Waypoints across Hyderabad Streets
+// Detailed Real Road Coordinates Waypoints across Bangalore Corridor
 const REAL_ROUTE_COORDS: [number, number][] = [
-  [17.4265, 78.4520], // Bakery (Somajiguda)
-  [17.4271, 78.4502], // Raj Bhavan Road
-  [17.4278, 78.4485], // Panjagutta Flyover Junction
-  [17.4285, 78.4440], // Nagarjuna Circle
-  [17.4275, 78.4395], // Banjara Hills Road No. 1
-  [17.4260, 78.4350], // Near City Center Mall
-  [17.4248, 78.4300], // Road No. 3 Crossing
-  [17.4240, 78.4255], // Road No. 10 Junction
-  [17.4232, 78.4210], // Towards MLA Colony / Lotus Pond
-  [17.4245, 78.4160], // Road No. 12 Avenue
-  [17.4252, 78.4130], // Lotus Pond Circle
-  [17.4258, 78.4110], // Destination (Lotus Road, Hyderabad)
+  [12.7932, 77.6975], // Bakery (Chandapura Hub 562162)
+  [12.8050, 77.6910], // Surya City Junction
+  [12.8150, 77.6880], // Chandapura-Anekal Flyover
+  [12.8240, 77.6840], // Hebbagodi Main Road
+  [12.8350, 77.6800], // Bommasandra Industrial Hub
+  [12.8420, 77.6740], // Electronic City Toll Plaza
+  [12.8510, 77.6680], // Electronic City Phase 2 Elevated Corridor
+  [12.8550, 77.6620], // Tech Park Avenue
+  [12.8480, 77.6580], // Neeladri Road Cross
+  [12.8460, 77.6550], // Destination (Customer Doorstep, Bangalore)
 ];
 
 const REAL_ROUTE_GOOGLE_COORDS = REAL_ROUTE_COORDS.map(([lat, lng]) => ({

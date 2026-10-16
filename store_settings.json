@@ -1,0 +1,15 @@
+{
+  "storeName": "Sweet Bliss by Jyoti Tanti",
+  "ownerName": "Jyoti Tanti",
+  "phone": "6297201943",
+  "whatsappNumber": "916297201943",
+  "email": "ansariwazid1995@gmail.com",
+  "address": "Sweet Bliss Patisserie by Jyoti Tanti, Main Road, Chandapura, Bangalore, Karnataka - 562162",
+  "city": "Bangalore",
+  "state": "Karnataka",
+  "pincode": "562162",
+  "deliveryPincodes": ["562162", "560100", "560099", "560068", "560076", "560105", "560034", "562106", "560066", "560037"],
+  "freeDeliveryThreshold": 0,
+  "isOpen": true,
+  "upiId": "6297201943@upi"
+}

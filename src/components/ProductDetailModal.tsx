@@ -15,11 +15,14 @@ import {
   CheckCircle2,
   Filter,
   MessageSquare,
-  ArrowLeft
+  ArrowLeft,
+  Share2,
+  Copy
 } from 'lucide-react';
 import { CakeProduct, STANDARD_CAKE_SIZES, ProductVariant } from '../data/bakeryData.ts';
 import { getProductWhatsAppUrl } from '../utils/whatsapp.ts';
 import { getProductReviews, saveProductReview, CustomerReview } from '../data/productReviews.ts';
+import { updateProductMetaTags } from '../utils/seo.ts';
 
 interface ProductDetailModalProps {
   product: CakeProduct | null;
@@ -78,13 +81,53 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [newAuthor, setNewAuthor] = useState('');
-  const [newLocation, setNewLocation] = useState('Hyderabad');
+  const [newLocation, setNewLocation] = useState('Bangalore');
   const [newOccasion, setNewOccasion] = useState('Birthday Celebration');
   const [newTitle, setNewTitle] = useState('');
   const [newComment, setNewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewSuccessMsg, setReviewSuccessMsg] = useState(false);
   const [helpfulVotes, setHelpfulVotes] = useState<Record<string, number>>({});
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Dynamically update product SEO meta tags (title, description, OpenGraph, Twitter, and Schema.org JSON-LD)
+  useEffect(() => {
+    if (isOpen && product) {
+      updateProductMetaTags(product);
+    }
+    return () => {
+      updateProductMetaTags(null);
+    };
+  }, [isOpen, product]);
+
+  const handleShareProduct = async () => {
+    if (!product) return;
+    const shareUrl = `${window.location.origin}/?product=${encodeURIComponent(product.id)}`;
+    const shareData = {
+      title: `${product.name} – ₹${product.price} | Sweet Bliss by Jyoti Tanti`,
+      text: `Order fresh ${product.name} (₹${product.price}) handcrafted by Chef Jyoti Tanti in Bangalore (562162). 100% Eggless available with free delivery!`,
+      url: shareUrl,
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // Fallback to clipboard if user cancels or API errors
+      }
+    }
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2200);
+      }
+    } catch (err) {
+      console.warn('Clipboard write failed:', err);
+    }
+  };
 
   useEffect(() => {
     if (product) {
@@ -190,14 +233,34 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
       <div className="relative bg-white rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-rose-100 my-6 sm:my-8">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-white/90 hover:bg-white text-stone-600 hover:text-stone-900 flex items-center justify-center shadow-md transition-colors cursor-pointer"
-          aria-label="Close modal"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {/* Top actions: Share button & Close button */}
+        <div className="absolute top-4 right-4 z-20 flex items-center gap-2">
+          <button
+            onClick={handleShareProduct}
+            className="h-10 px-3.5 rounded-full bg-white/90 hover:bg-white text-stone-700 hover:text-[#881337] flex items-center gap-1.5 shadow-md transition-all cursor-pointer text-xs font-semibold"
+            title="Share this cake (SEO link with rich card preview)"
+            aria-label="Share product"
+          >
+            {copiedLink ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-700 font-bold">Link Copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4 text-[#881337]" />
+                <span className="hidden sm:inline">Share</span>
+              </>
+            )}
+          </button>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-full bg-white/90 hover:bg-white text-stone-600 hover:text-stone-900 flex items-center justify-center shadow-md transition-colors cursor-pointer"
+            aria-label="Close modal"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Left Column: Image & Badges */}
@@ -232,7 +295,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <span>Bakes fresh in {product.prepTimeHours} hrs</span>
               </div>
               <span className="text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60">
-                Same-Day Hyderabad Delivery
+                Same-Day Bangalore Delivery (562162)
               </span>
             </div>
           </div>
@@ -871,7 +934,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                           {/* Helpful button */}
                           <div className="pt-1.5 border-t border-stone-100 flex items-center justify-between text-[10px] text-stone-500">
-                            <span>Freshly prepared at Sweet Bliss Hyderabad</span>
+                            <span>Freshly handcrafted by Chef Jyoti Tanti • Bangalore (562162)</span>
                             <button
                               type="button"
                               onClick={() => handleHelpfulVote(rev.id)}

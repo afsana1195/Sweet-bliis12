@@ -22,6 +22,8 @@ const ORDERS_FILE = path.join(__dirname, 'orders_store.json');
 const CUSTOM_CAKES_FILE = path.join(__dirname, 'custom_cakes_store.json');
 const SUBSCRIBERS_FILE = path.join(__dirname, 'newsletter_subscribers.json');
 const USERS_FILE = path.join(__dirname, 'users_store.json');
+const STORE_SETTINGS_FILE = path.join(__dirname, 'store_settings.json');
+const MENU_OVERRIDES_FILE = path.join(__dirname, 'menu_overrides.json');
 
 export interface StoredOrder {
   orderId: string;
@@ -194,13 +196,13 @@ function loadUsers(): StoredUser[] {
   // Pre-seed default demo customer so visitors can test 1-click login
   const defaultDemoUser: StoredUser = {
     id: 'user_demo_101',
-    name: 'Priya Sharma',
-    email: 'priya@example.com',
+    name: 'Ananya Rao',
+    email: 'ananya@example.com',
     phone: '9876543210',
     passwordHash: crypto.createHash('sha256').update('demo123').digest('hex'),
-    address: 'Plot 42, Road No. 36, Jubilee Hills',
-    city: 'Hyderabad',
-    pincode: '500033',
+    address: 'Villa 14, Surya City Phase 1, Chandapura',
+    city: 'Bangalore',
+    pincode: '562162',
     memberTier: 'Gold',
     loyaltyPoints: 340,
     createdAt: new Date().toISOString(),
@@ -218,10 +220,85 @@ function saveUsers(users: StoredUser[]) {
   }
 }
 
+export interface StoreSettings {
+  storeName: string;
+  ownerName: string;
+  phone: string;
+  whatsappNumber: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  deliveryPincodes: string[];
+  freeDeliveryThreshold: number;
+  isOpen: boolean;
+  closureNotice?: string;
+  upiId?: string;
+}
+
+function loadStoreSettings(): StoreSettings {
+  try {
+    if (fs.existsSync(STORE_SETTINGS_FILE)) {
+      const data = fs.readFileSync(STORE_SETTINGS_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.warn('Could not read store settings:', err);
+  }
+  return {
+    storeName: 'Sweet Bliss by Jyoti Tanti',
+    ownerName: 'Jyoti Tanti',
+    phone: '6297201943',
+    whatsappNumber: '916297201943',
+    email: 'ansariwazid1995@gmail.com',
+    address: 'Sweet Bliss Patisserie by Jyoti Tanti, Main Road, Chandapura, Bangalore, Karnataka - 562162',
+    city: 'Bangalore',
+    state: 'Karnataka',
+    pincode: '562162',
+    deliveryPincodes: ['562162', '560100', '560099', '560068', '560076', '560105', '560034', '562106', '560066', '560037'],
+    freeDeliveryThreshold: 0,
+    isOpen: true,
+    upiId: '6297201943@upi',
+  };
+}
+
+function saveStoreSettings(settings: StoreSettings) {
+  try {
+    fs.writeFileSync(STORE_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not save store settings:', err);
+  }
+}
+
+export type MenuOverrides = Record<string, { isOutOfStock?: boolean; customPrice?: number }>;
+
+function loadMenuOverrides(): MenuOverrides {
+  try {
+    if (fs.existsSync(MENU_OVERRIDES_FILE)) {
+      const data = fs.readFileSync(MENU_OVERRIDES_FILE, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.warn('Could not read menu overrides:', err);
+  }
+  return {};
+}
+
+function saveMenuOverrides(overrides: MenuOverrides) {
+  try {
+    fs.writeFileSync(MENU_OVERRIDES_FILE, JSON.stringify(overrides, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not save menu overrides:', err);
+  }
+}
+
 const ordersStore: StoredOrder[] = loadOrders();
 const customCakeStore: StoredCustomCake[] = loadCustomCakes();
 const subscribersStore: StoredSubscriber[] = loadSubscribers();
 const usersStore: StoredUser[] = loadUsers();
+let storeSettings: StoreSettings = loadStoreSettings();
+let menuOverrides: MenuOverrides = loadMenuOverrides();
 
 // Calculation Helper: calculate amounts strictly on server in INR & Paise
 function calculateOrderFinancials(items: any[], deliverySlot: string) {
@@ -261,9 +338,11 @@ function calculateOrderFinancials(items: any[], deliverySlot: string) {
   });
 
   const isMidnight = deliverySlot === 'midnight';
-  const deliveryFee = calculatedSubtotal >= BUSINESS_CONFIG.freeDeliveryThreshold
-    ? (isMidnight ? 99 : 0)
-    : (isMidnight ? BUSINESS_CONFIG.expressMidnightDeliveryFee : BUSINESS_CONFIG.standardDeliveryFee);
+  const deliveryFee = BUSINESS_CONFIG.freeDeliveryThreshold === 0 ? 0 : (
+    calculatedSubtotal >= BUSINESS_CONFIG.freeDeliveryThreshold
+      ? (isMidnight ? 99 : 0)
+      : (isMidnight ? BUSINESS_CONFIG.expressMidnightDeliveryFee : BUSINESS_CONFIG.standardDeliveryFee)
+  );
 
   const discount = calculatedSubtotal > 1500 ? Math.round(calculatedSubtotal * 0.1) : 0;
   const total = Math.max(0, calculatedSubtotal + deliveryFee - discount);
@@ -386,7 +465,16 @@ app.get('/api/products', (req: Request, res: Response) => {
     );
   }
 
-  res.json({ products: filtered, count: filtered.length });
+  const enriched = filtered.map((p) => {
+    const override = menuOverrides[p.id];
+    return {
+      ...p,
+      price: override?.customPrice ?? p.price,
+      isOutOfStock: Boolean(override?.isOutOfStock),
+    };
+  });
+
+  res.json({ products: enriched, count: enriched.length });
 });
 
 // -------------------------------------------------------------
@@ -1397,6 +1485,58 @@ app.patch('/api/admin/orders/:orderId/status', verifyAdminAuth, (req: Request, r
     message: `Order ${order.orderId} updated to ${order.status}`,
     order,
   });
+});
+
+// -------------------------------------------------------------
+// 5B. ADMIN MENU & STORE SETTINGS MANAGEMENT API
+// -------------------------------------------------------------
+app.get('/api/admin/menu', verifyAdminAuth, (_req: Request, res: Response) => {
+  const menuList = PRODUCTS.map((p) => {
+    const override = menuOverrides[p.id];
+    return {
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      categoryLabel: p.categoryLabel,
+      image: p.image,
+      basePrice: p.price,
+      currentPrice: override?.customPrice ?? p.price,
+      isOutOfStock: Boolean(override?.isOutOfStock),
+      rating: p.rating,
+      badge: p.badge,
+    };
+  });
+  res.json({ success: true, menu: menuList, count: menuList.length });
+});
+
+app.post('/api/admin/menu/toggle-stock', verifyAdminAuth, (req: Request, res: Response) => {
+  const { productId, isOutOfStock } = req.body;
+  if (!productId) return res.status(400).json({ error: 'Product ID is required' });
+  menuOverrides[productId] = { ...menuOverrides[productId], isOutOfStock: Boolean(isOutOfStock) };
+  saveMenuOverrides(menuOverrides);
+  res.json({ success: true, productId, isOutOfStock: Boolean(isOutOfStock) });
+});
+
+app.post('/api/admin/menu/update-price', verifyAdminAuth, (req: Request, res: Response) => {
+  const { productId, price } = req.body;
+  const numPrice = Math.round(Number(price));
+  if (!productId || isNaN(numPrice) || numPrice <= 0) {
+    return res.status(400).json({ error: 'Valid Product ID and price are required' });
+  }
+  menuOverrides[productId] = { ...menuOverrides[productId], customPrice: numPrice };
+  saveMenuOverrides(menuOverrides);
+  res.json({ success: true, productId, currentPrice: numPrice });
+});
+
+app.get('/api/admin/settings', verifyAdminAuth, (_req: Request, res: Response) => {
+  res.json({ success: true, settings: storeSettings });
+});
+
+app.post('/api/admin/settings', verifyAdminAuth, (req: Request, res: Response) => {
+  const updated = { ...storeSettings, ...req.body };
+  storeSettings = updated;
+  saveStoreSettings(storeSettings);
+  res.json({ success: true, settings: storeSettings });
 });
 
 // -------------------------------------------------------------

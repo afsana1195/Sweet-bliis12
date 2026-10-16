@@ -165,8 +165,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     phone: currentUser?.phone || '',
     email: currentUser?.email || '',
     address: currentUser?.address || '',
-    city: currentUser?.city || 'Hyderabad',
-    pincode: currentUser?.pincode || '500033',
+    city: currentUser?.city || 'Bangalore',
+    pincode: currentUser?.pincode || '562162',
     landmark: '',
     deliveryDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     deliverySlot: 'evening',
@@ -181,8 +181,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         email: prev.email || currentUser.email,
         phone: prev.phone || currentUser.phone,
         address: prev.address || currentUser.address || '',
-        city: prev.city || currentUser.city || 'Hyderabad',
-        pincode: prev.pincode || currentUser.pincode || '500033',
+        city: prev.city || currentUser.city || 'Bangalore',
+        pincode: prev.pincode || currentUser.pincode || '562162',
       }));
     }
   }, [currentUser]);
@@ -354,10 +354,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   // Financial Calculations
   const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
   const isMidnight = formData.deliverySlot === 'midnight';
-  const isFreeDelivery = subtotal >= BUSINESS_CONFIG.freeDeliveryThreshold;
-  const deliveryFee = isFreeDelivery
-    ? isMidnight ? 99 : 0
-    : isMidnight ? BUSINESS_CONFIG.expressMidnightDeliveryFee : BUSINESS_CONFIG.standardDeliveryFee;
+  const isFreeDelivery = BUSINESS_CONFIG.freeDeliveryThreshold === 0 || subtotal >= BUSINESS_CONFIG.freeDeliveryThreshold;
+  const deliveryFee = BUSINESS_CONFIG.freeDeliveryThreshold === 0 ? 0 : (
+    isFreeDelivery
+      ? (isMidnight ? 99 : 0)
+      : (isMidnight ? BUSINESS_CONFIG.expressMidnightDeliveryFee : BUSINESS_CONFIG.standardDeliveryFee)
+  );
 
   const baseOrderDiscount = subtotal > 1500 ? Math.round(subtotal * 0.1) : 0;
   const promoDiscount = appliedPromo ? appliedPromo.discountAmount : 0;
@@ -1066,7 +1068,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     <input
                       type="text"
                       maxLength={6}
-                      placeholder="500033"
+                      placeholder="562162"
                       value={formData.pincode}
                       onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, '') })}
                       className="w-full px-4 py-3 rounded-2xl border border-stone-200 bg-[#F0F4F8] text-xs sm:text-sm focus:outline-none focus:border-[#065f46] text-stone-900 font-medium font-mono"
@@ -1079,7 +1081,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     </label>
                     <input
                       type="text"
-                      placeholder="Hyderabad"
+                      placeholder="Bangalore"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       className="w-full px-4 py-3 rounded-2xl border border-stone-200 bg-[#F0F4F8] text-xs sm:text-sm focus:outline-none focus:border-[#065f46] text-stone-900 font-medium"
@@ -1094,7 +1096,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Opposite Jubilee Hills Club, Near Metro Pillar 12"
+                    placeholder="e.g. Near Chandapura Circle, Electronic City Flyover"
                     value={formData.landmark}
                     onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
                     className="w-full px-4 py-3 rounded-2xl border border-stone-200 bg-[#F0F4F8] text-xs sm:text-sm focus:outline-none focus:border-[#065f46] text-stone-900"

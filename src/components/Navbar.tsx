@@ -49,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-[#FFF9F9]/95 backdrop-blur-md border-b border-[#FCE7F3] shadow-xs transition-all w-full max-w-full">
       {/* Top Announcement Bar */}
       <div className="bg-[#881337] text-white text-[11px] sm:text-xs py-1.5 px-3 sm:px-4 text-center tracking-wide font-medium flex items-center justify-center gap-2 sm:gap-4 overflow-hidden w-full max-w-full">
-        <span className="truncate">✨ Freshly Baked Daily • Free Delivery on orders over ₹999</span>
+        <span className="truncate">✨ Freshly Baked Daily • 100% Free Express Delivery Across Bangalore (562162)</span>
         <span className="hidden md:inline text-rose-300">•</span>
         <a
           href={getWhatsAppInquiryUrl()}
@@ -58,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="hidden md:inline-flex items-center gap-1 text-rose-200 hover:text-white underline underline-offset-2 transition-colors shrink-0"
         >
           <MessageCircle className="w-3.5 h-3.5" />
-          <span>Quick WhatsApp Order: +91 {BUSINESS_CONFIG.phone}</span>
+          <span>Chef Jyoti: +91 {BUSINESS_CONFIG.phone}</span>
         </a>
       </div>
 
@@ -89,8 +89,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             <span className="font-serif text-xl sm:text-2xl sm:text-[26px] font-bold text-[#881337] tracking-tight leading-none block truncate">
               Sweet Bliss
             </span>
-            <span className="text-[8px] sm:text-[10px] tracking-[0.12em] sm:tracking-[0.2em] uppercase font-semibold text-rose-700/80 mt-0.5 block truncate">
-              CAKES • PASTRIES • HAPPINESS
+            <span className="text-[8px] sm:text-[10px] tracking-[0.12em] sm:tracking-[0.18em] uppercase font-semibold text-rose-700/80 mt-0.5 block truncate">
+              BY JYOTI TANTI • BANGALORE
             </span>
           </div>
         </button>

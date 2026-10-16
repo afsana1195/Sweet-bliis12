@@ -5,10 +5,10 @@
       "fullName": "Priya Sharma",
       "phone": "9876543210",
       "email": "priya@example.com",
-      "address": "Plot 42, Road No. 36, Jubilee Hills",
-      "pincode": "500033",
-      "city": "Hyderabad",
-      "landmark": "Call me"
+      "address": "Flat 302, Green Meadows, Chandapura",
+      "pincode": "562162",
+      "city": "Bangalore",
+      "landmark": "Near Chandapura Circle"
     },
     "items": [
       {
@@ -28,9 +28,9 @@
     "paymentStatus": "PAID",
     "transactionId": "UPI_RR_1791945106769_3462",
     "subtotal": 150,
-    "deliveryFee": 99,
+    "deliveryFee": 0,
     "discount": 0,
-    "total": 249,
+    "total": 150,
     "orderNotes": "",
     "createdAt": "2026-10-14T02:31:47.524Z",
     "status": "Delivered",
@@ -43,17 +43,12 @@
       {
         "status": "Order Confirmed",
         "timestamp": "2026-10-14T02:31:47.524Z",
-        "note": "Payment of ₹249 verified successfully (UPI_RR_1791945106769_3462)"
+        "note": "Payment of ₹150 verified successfully (UPI_RR_1791945106769_3462)"
       },
       {
         "status": "Preparing Your Order",
         "timestamp": "2026-10-14T02:44:48.598Z",
-        "note": "Executive Chef is hand-whipping cream & piping rosettes"
-      },
-      {
-        "status": "Order Confirmed",
-        "timestamp": "2026-10-14T02:44:50.067Z",
-        "note": "Bakery manager accepted order & verified ingredients"
+        "note": "Chef Jyoti Tanti is hand-whipping cream & piping rosettes"
       },
       {
         "status": "Out for Delivery",
@@ -63,42 +58,34 @@
       {
         "status": "Delivered",
         "timestamp": "2026-10-14T02:45:15.115Z",
-        "note": "Rider arrived at customer doorstep. Celebrations unlocked!"
-      },
-      {
-        "status": "Delivered",
-        "timestamp": "2026-10-14T02:47:43.756Z",
-        "note": "Rider arrived at customer doorstep. Celebrations unlocked!"
-      },
-      {
-        "status": "Delivered",
-        "timestamp": "2026-10-14T02:47:44.325Z",
-        "note": "Rider arrived at customer doorstep. Celebrations unlocked!"
+        "note": "Rider arrived at customer doorstep in Bangalore. Celebrations unlocked!"
       }
     ]
   },
   {
     "orderId": "SB-2026-7411",
     "customer": {
-      "fullName": "Ananya Sharma",
+      "fullName": "Ananya Rao",
       "phone": "9876543210",
-      "address": "Road No. 36, Jubilee Hills",
-      "city": "Hyderabad",
-      "pincode": "500033"
+      "email": "ananya@example.com",
+      "address": "Villa 14, Surya City Phase 1, Chandapura",
+      "city": "Bangalore",
+      "pincode": "562162",
+      "landmark": "Opposite Park"
     },
     "items": [
       {
         "productId": "chocolate-truffle-cake",
-        "name": "Chocolate Truffle Cake",
+        "name": "Belgian Chocolate Truffle Cake",
         "weightKg": 1,
         "price": 1293,
         "quantity": 1,
         "isEggless": true,
-        "cakeMessage": "",
+        "cakeMessage": "Happy Birthday Ananya!",
         "flavour": "Belgian Dark Truffle"
       }
     ],
-    "deliveryDate": "2026-10-11",
+    "deliveryDate": "2026-10-16",
     "deliverySlot": "evening",
     "paymentMethod": "ONLINE_UPI",
     "paymentStatus": "PAID",
@@ -106,25 +93,25 @@
     "deliveryFee": 0,
     "discount": 0,
     "total": 1293,
-    "orderNotes": "",
-    "createdAt": "2026-10-11T22:49:00.078Z",
+    "orderNotes": "Please pack with extra birthday candles",
+    "createdAt": "2026-10-15T10:49:00.078Z",
     "status": "Preparing Your Order",
     "razorpayOrderId": "order_sandbox_1791758940078_6768",
     "statusHistory": [
       {
         "status": "Order Placed",
-        "timestamp": "2026-10-11T22:49:00.078Z",
+        "timestamp": "2026-10-15T10:49:00.078Z",
         "note": "Awaiting UPI / online payment confirmation"
       },
       {
         "status": "Order Confirmed",
-        "timestamp": "2026-10-11T22:49:04.447Z",
+        "timestamp": "2026-10-15T10:49:04.447Z",
         "note": "Payment verified via Razorpay UPI (pay_test_99210)"
       },
       {
         "status": "Preparing Your Order",
-        "timestamp": "2026-10-11T22:49:42.368Z",
-        "note": "Sponge baked, piping chocolate rosettes"
+        "timestamp": "2026-10-15T10:49:42.368Z",
+        "note": "Chef Jyoti Tanti is handcrafting 55% Belgian chocolate rosettes"
       }
     ],
     "transactionId": "pay_test_99210"

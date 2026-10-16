@@ -22,6 +22,7 @@ export interface CakeProduct {
   sizes: { label: string; weightKg: number; priceMultiplier: number }[];
   productVariants?: ProductVariant[];
   isEggless: boolean;
+  inStock?: boolean;
   dietaryOptions: ('Eggless' | 'Contains Egg' | 'Vegan Option' | 'Gluten-Free Option')[];
   ingredients: string[];
   allergens: string[];
@@ -2584,18 +2585,22 @@ export const PRODUCTS: CakeProduct[] = [
 ];
 
 export const BUSINESS_CONFIG = {
-  name: 'Sweet Bliss',
-  tagline: 'Cakes • Pastries • Happiness',
+  name: 'Sweet Bliss by Jyoti Tanti',
+  ownerName: 'Jyoti Tanti',
+  tagline: 'Artisan Celebration Cakes & Gourmet Pastries',
   phone: '6297201943',
   whatsappNumber: '916297201943',
   email: 'ansariwazid1995@gmail.com',
-  address: '42 Blossom Boulevard, Jubilee Hills, Hyderabad, 500033',
+  address: 'Sweet Bliss Patisserie by Jyoti Tanti, Main Road, Chandapura, Bangalore, Karnataka - 562162',
+  city: 'Bangalore',
+  state: 'Karnataka',
+  pincode: '562162',
   bakingHours: 'Mon - Sun: 8:00 AM - 11:30 PM',
   currency: '₹',
-  deliveryPincodes: ['500033', '500034', '500081', '500082', '500096', '500016', '500003'],
-  freeDeliveryThreshold: 999,
-  standardDeliveryFee: 99,
-  expressMidnightDeliveryFee: 199,
+  deliveryPincodes: ['562162', '560100', '560099', '560068', '560076', '560105', '560034', '562106', '560066', '560037'],
+  freeDeliveryThreshold: 0,
+  standardDeliveryFee: 0,
+  expressMidnightDeliveryFee: 0,
   slots: [
     { id: 'morning', label: 'Morning (9:00 AM - 12:00 PM)' },
     { id: 'afternoon', label: 'Afternoon (1:00 PM - 4:00 PM)' },
