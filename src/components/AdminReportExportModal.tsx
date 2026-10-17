@@ -141,6 +141,7 @@ export const AdminReportExportModal: React.FC<AdminReportExportModalProps> = ({
         }`,
         {
           headers: {
+            Authorization: `Bearer ${adminKey}`,
             'x-admin-key': adminKey,
           },
         }

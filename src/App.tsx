@@ -34,6 +34,24 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedProduct, setSelectedProduct] = useState<CakeProduct | null>(null);
 
+  // Dynamic Product Store state
+  const [products, setProducts] = useState<CakeProduct[]>(PRODUCTS);
+
+  const refreshProducts = () => {
+    fetch('/api/products')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.products && Array.isArray(data.products) && data.products.length > 0) {
+          setProducts(data.products);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    refreshProducts();
+  }, []);
+
   // Drawers & Modals
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState<boolean>(false);
@@ -469,7 +487,7 @@ export default function App() {
             />
 
             <FeaturedCollection
-              products={PRODUCTS}
+              products={products}
               wishlist={wishlist}
               onToggleWishlist={handleToggleWishlist}
               onAddToCart={handleAddToCart}
@@ -507,7 +525,7 @@ export default function App() {
 
         {currentRoute === 'shop' && (
           <ShopPage
-            products={PRODUCTS}
+            products={products}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
             selectedOccasion={selectedOccasion}
@@ -549,7 +567,10 @@ export default function App() {
         )}
 
         {currentRoute === 'admin' && (
-          <AdminOrderPage onNavigate={(route) => setCurrentRoute(route)} />
+          <AdminOrderPage
+            onNavigate={(route) => setCurrentRoute(route)}
+            onMenuUpdated={refreshProducts}
+          />
         )}
 
         {currentRoute === 'about' && (

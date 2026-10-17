@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
-import { PRODUCTS, BUSINESS_CONFIG } from './src/data/bakeryData.ts';
+import { PRODUCTS, BUSINESS_CONFIG, CakeProduct } from './src/data/bakeryData.ts';
 
 dotenv.config();
 
@@ -19,11 +19,13 @@ app.use(express.json({ limit: '10mb' }));
 
 // Persistent storage file paths
 const ORDERS_FILE = path.join(__dirname, 'orders_store.json');
+const PRODUCTS_FILE = path.join(__dirname, 'products_store.json');
 const CUSTOM_CAKES_FILE = path.join(__dirname, 'custom_cakes_store.json');
 const SUBSCRIBERS_FILE = path.join(__dirname, 'newsletter_subscribers.json');
 const USERS_FILE = path.join(__dirname, 'users_store.json');
 const STORE_SETTINGS_FILE = path.join(__dirname, 'store_settings.json');
 const MENU_OVERRIDES_FILE = path.join(__dirname, 'menu_overrides.json');
+const INGREDIENTS_FILE = path.join(__dirname, 'ingredients_store.json');
 
 export interface StoredOrder {
   orderId: string;
@@ -293,65 +295,373 @@ function saveMenuOverrides(overrides: MenuOverrides) {
   }
 }
 
+function loadProducts(): CakeProduct[] {
+  try {
+    if (fs.existsSync(PRODUCTS_FILE)) {
+      const data = fs.readFileSync(PRODUCTS_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (err) {
+    console.warn('Could not read products from disk:', err);
+  }
+  // Initialize from PRODUCTS
+  try {
+    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(PRODUCTS, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Could not seed products_store.json:', e);
+  }
+  return [...PRODUCTS];
+}
+
+function saveProducts(products: CakeProduct[]) {
+  try {
+    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not save products to disk:', err);
+  }
+}
+
+export interface StoredIngredient {
+  id: string;
+  name: string;
+  category:
+    | 'Flour & Grains'
+    | 'Dairy & Fats'
+    | 'Sugars & Sweeteners'
+    | 'Chocolate & Cocoa'
+    | 'Flavourings & Extracts'
+    | 'Leavening & Additives'
+    | 'Packaging & Kitchen';
+  currentStock: number;
+  unit: 'kg' | 'liters' | 'grams' | 'ml' | 'packets';
+  minimumThreshold: number;
+  idealStock: number;
+  costPerUnit: number;
+  supplier: string;
+  lastRestocked: string;
+  expiryDate?: string;
+  storageLocation: string;
+  notes?: string;
+}
+
+function loadIngredients(): StoredIngredient[] {
+  try {
+    if (fs.existsSync(INGREDIENTS_FILE)) {
+      const data = fs.readFileSync(INGREDIENTS_FILE, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (err) {
+    console.warn('Could not read ingredients from disk:', err);
+  }
+
+  // Pre-seed comprehensive bakery ingredients catalogue (flour, butter, cream, sugar, etc.)
+  const defaultIngredients: StoredIngredient[] = [
+    {
+      id: 'ing-flour-ap',
+      name: 'Organic All-Purpose Flour (Maida)',
+      category: 'Flour & Grains',
+      currentStock: 48.5,
+      unit: 'kg',
+      minimumThreshold: 20.0,
+      idealStock: 100.0,
+      costPerUnit: 52,
+      supplier: 'Deccan Organic Mills, Bangalore',
+      lastRestocked: new Date(Date.now() - 48 * 3600 * 1000).toISOString(),
+      expiryDate: '2026-12-31',
+      storageLocation: 'Dry Silo A1 (Main Pantry)',
+      notes: 'Triple-sifted unbleached wheat for fluffy sponge cakes & brownies',
+    },
+    {
+      id: 'ing-flour-almond',
+      name: 'Blanched Almond Flour (Gluten-Free)',
+      category: 'Flour & Grains',
+      currentStock: 8.5,
+      unit: 'kg',
+      minimumThreshold: 5.0,
+      idealStock: 25.0,
+      costPerUnit: 780,
+      supplier: 'Kashmir Dry Fruits Wholesale',
+      lastRestocked: new Date(Date.now() - 96 * 3600 * 1000).toISOString(),
+      expiryDate: '2026-09-30',
+      storageLocation: 'Airtight Bin A2 (Cold Pantry)',
+      notes: 'Used for French macarons and keto specialty celebration cakes',
+    },
+    {
+      id: 'ing-butter-unsalted',
+      name: 'Artisan Unsalted White Butter (82% Fat)',
+      category: 'Dairy & Fats',
+      currentStock: 16.5,
+      unit: 'kg',
+      minimumThreshold: 15.0,
+      idealStock: 60.0,
+      costPerUnit: 520,
+      supplier: 'Amul Fresh Dairy Bangalore',
+      lastRestocked: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+      expiryDate: '2026-11-15',
+      storageLocation: 'Walk-in Chiller (Shelf 2, 4°C)',
+      notes: 'Crucial for velvety Swiss meringue buttercream and pie crusts',
+    },
+    {
+      id: 'ing-whipping-cream',
+      name: 'Heavy Dairy Whipping Cream (35% Fat)',
+      category: 'Dairy & Fats',
+      currentStock: 12.0,
+      unit: 'liters',
+      minimumThreshold: 10.0,
+      idealStock: 50.0,
+      costPerUnit: 340,
+      supplier: 'Milky Mist / Richs Pastry Cream',
+      lastRestocked: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
+      expiryDate: '2026-10-31',
+      storageLocation: 'Walk-in Chiller (Shelf 1, 3°C)',
+      notes: 'Whip chilled directly from fridge; used for mousse, ganache & chantilly',
+    },
+    {
+      id: 'ing-cream-cheese',
+      name: 'Philadelphia Style Cream Cheese',
+      category: 'Dairy & Fats',
+      currentStock: 5.5,
+      unit: 'kg',
+      minimumThreshold: 6.0,
+      idealStock: 20.0,
+      costPerUnit: 680,
+      supplier: 'Puratos India Specialty Dairy',
+      lastRestocked: new Date(Date.now() - 72 * 3600 * 1000).toISOString(),
+      expiryDate: '2026-11-20',
+      storageLocation: 'Walk-in Chiller (Dairy Rack 4°C)',
+      notes: 'New York Baked Cheesecake and signature Red Velvet swirl frosting',
+    },
+    {
+      id: 'ing-condensed-milk',
+      name: 'Sweetened Condensed Milk (Eggless Sponge Binder)',
+      category: 'Dairy & Fats',
+      currentStock: 22,
+      unit: 'packets',
+      minimumThreshold: 12,
+      idealStock: 48,
+      costPerUnit: 140,
+      supplier: 'Nestle Milkmaid Depot',
+      lastRestocked: new Date(Date.now() - 120 * 3600 * 1000).toISOString(),
+      storageLocation: 'Dry Storage Shelf B1',
+      notes: 'Key moisture and binding ingredient for 100% eggless cakes',
+    },
+    {
+      id: 'ing-sugar-castor',
+      name: 'Superfine White Castor Sugar',
+      category: 'Sugars & Sweeteners',
+      currentStock: 34.0,
+      unit: 'kg',
+      minimumThreshold: 15.0,
+      idealStock: 80.0,
+      costPerUnit: 65,
+      supplier: 'Mawana Refined Sugars Ltd',
+      lastRestocked: new Date(Date.now() - 70 * 3600 * 1000).toISOString(),
+      storageLocation: 'Dry Storage Silo B2',
+      notes: 'Dissolves rapidly without graininess in batters and meringues',
+    },
+    {
+      id: 'ing-sugar-icing',
+      name: 'Pure Icing Sugar with Cornstarch',
+      category: 'Sugars & Sweeteners',
+      currentStock: 14.5,
+      unit: 'kg',
+      minimumThreshold: 10.0,
+      idealStock: 40.0,
+      costPerUnit: 78,
+      supplier: 'Blue Bird Confectionery Ltd',
+      lastRestocked: new Date(Date.now() - 60 * 3600 * 1000).toISOString(),
+      storageLocation: 'Dry Storage Silo B3',
+      notes: 'Silky smooth dustings and delicate sugar glaze',
+    },
+    {
+      id: 'ing-cocoa-dutch',
+      name: 'Dutch-Processed Dark Cocoa Powder (22% Butter)',
+      category: 'Chocolate & Cocoa',
+      currentStock: 9.0,
+      unit: 'kg',
+      minimumThreshold: 6.0,
+      idealStock: 25.0,
+      costPerUnit: 890,
+      supplier: 'Van Houten / Callebaut India',
+      lastRestocked: new Date(Date.now() - 90 * 3600 * 1000).toISOString(),
+      storageLocation: 'Airtight Dark Cupboard C1',
+      notes: 'Deep rich chocolate flavour for Devil Food Cake and Belgian Truffle',
+    },
+    {
+      id: 'ing-choc-dark-callets',
+      name: 'Belgian Couverture Chocolate Callets (54.5%)',
+      category: 'Chocolate & Cocoa',
+      currentStock: 18.0,
+      unit: 'kg',
+      minimumThreshold: 10.0,
+      idealStock: 45.0,
+      costPerUnit: 1150,
+      supplier: 'Callebaut Official Importers Bangalore',
+      lastRestocked: new Date(Date.now() - 40 * 3600 * 1000).toISOString(),
+      storageLocation: 'Chocolate Tempering Room (18°C)',
+      notes: 'Glossy drips, chocolate curls, and rich ganache layers',
+    },
+    {
+      id: 'ing-vanilla-extract',
+      name: 'Pure Madagascar Bourbon Vanilla Bean Extract',
+      category: 'Flavourings & Extracts',
+      currentStock: 2.8,
+      unit: 'liters',
+      minimumThreshold: 1.0,
+      idealStock: 5.0,
+      costPerUnit: 2400,
+      supplier: 'Sprig Gourmet Naturals',
+      lastRestocked: new Date(Date.now() - 150 * 3600 * 1000).toISOString(),
+      storageLocation: 'Locked Flavorings Cabinet',
+      notes: 'Pure aromatic vanilla aroma for base sponges and pastry cream',
+    },
+    {
+      id: 'ing-baking-powder',
+      name: 'Aluminum-Free Double Acting Baking Powder',
+      category: 'Leavening & Additives',
+      currentStock: 5.5,
+      unit: 'kg',
+      minimumThreshold: 2.5,
+      idealStock: 12.0,
+      costPerUnit: 280,
+      supplier: 'Weikfield Food Products',
+      lastRestocked: new Date(Date.now() - 80 * 3600 * 1000).toISOString(),
+      storageLocation: 'Dry Storage Shelf D1',
+      notes: 'Provides reliable oven spring and consistent rise',
+    },
+    {
+      id: 'ing-cake-boxes-1kg',
+      name: 'Luxury 1kg Gold Embossed Cake Boxes + Ribbon',
+      category: 'Packaging & Kitchen',
+      currentStock: 82,
+      unit: 'packets',
+      minimumThreshold: 40,
+      idealStock: 250,
+      costPerUnit: 48,
+      supplier: 'Bangalore Box Crafters Packaging',
+      lastRestocked: new Date(Date.now() - 50 * 3600 * 1000).toISOString(),
+      storageLocation: 'Packaging Mezzanine Shelf P1',
+      notes: 'Windowed luxury carry boxes with greaseproof food-grade cake board',
+    },
+  ];
+
+  saveIngredients(defaultIngredients);
+  return defaultIngredients;
+}
+
+function saveIngredients(ingredients: StoredIngredient[]) {
+  try {
+    fs.writeFileSync(INGREDIENTS_FILE, JSON.stringify(ingredients, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Could not save ingredients to disk:', err);
+  }
+}
+
 const ordersStore: StoredOrder[] = loadOrders();
+const productsStore: CakeProduct[] = loadProducts();
 const customCakeStore: StoredCustomCake[] = loadCustomCakes();
 const subscribersStore: StoredSubscriber[] = loadSubscribers();
 const usersStore: StoredUser[] = loadUsers();
+const ingredientsStore: StoredIngredient[] = loadIngredients();
 let storeSettings: StoreSettings = loadStoreSettings();
 let menuOverrides: MenuOverrides = loadMenuOverrides();
 
 // Calculation Helper: calculate amounts strictly on server in INR & Paise
-function calculateOrderFinancials(items: any[], deliverySlot: string) {
+function calculateOrderFinancials(
+  items: any[],
+  deliverySlot: string,
+  promoCode?: string,
+  pointsToRedeem: number = 0,
+  userPointsAvailable: number = 0
+) {
   let calculatedSubtotal = 0;
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    throw new Error('Order must contain at least one valid item');
+  }
+
   const validatedItems = items.map((item: any) => {
-    const product = PRODUCTS.find((p) => p.id === item.productId);
+    const product = productsStore.find((p) => p.id === item.productId);
+    if (!product) {
+      throw new Error(`Product not found or unavailable in bakery catalogue: ${item.productId}`);
+    }
+
+    const override = menuOverrides[product.id];
+    const isOutOfStock = override?.isOutOfStock !== undefined ? override.isOutOfStock : (product.inStock === false);
+    if (isOutOfStock) {
+      throw new Error(`Product "${product.name}" is currently sold out and cannot be ordered.`);
+    }
+
+    const currentBasePrice = override?.customPrice ?? product.price;
     let itemUnitPrice = 0;
 
-    if (product) {
-      if (item.variantName && product.productVariants) {
-        const v = product.productVariants.find((pv) => pv.name === item.variantName);
-        if (v) itemUnitPrice = v.price;
-      }
-      if (!itemUnitPrice) {
-        const weightMultiplier = item.weightKg === 1.0 ? 1.85 : item.weightKg === 2.0 ? 3.5 : 1.0;
-        itemUnitPrice = Math.round(product.price * weightMultiplier);
-      }
-    } else {
-      itemUnitPrice = item.price || 120;
+    if (item.variantName && product.productVariants) {
+      const v = product.productVariants.find((pv) => pv.name === item.variantName);
+      if (v) itemUnitPrice = v.price;
+    }
+
+    if (!itemUnitPrice) {
+      const weightMultiplier = item.weightKg === 1.0 ? 1.85 : item.weightKg === 2.0 ? 3.5 : 1.0;
+      itemUnitPrice = Math.round(currentBasePrice * weightMultiplier);
     }
 
     const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
     calculatedSubtotal += itemUnitPrice * qty;
 
     return {
-      productId: item.productId,
+      productId: product.id,
       name: item.variantName
-        ? `${product ? product.name : item.name} (${item.variantName})`
-        : (product ? product.name : item.name || 'Artisan Treat'),
+        ? `${product.name} (${item.variantName})`
+        : product.name,
       weightKg: item.weightKg || 0.5,
       price: itemUnitPrice,
       quantity: qty,
       isEggless: item.isEggless ?? true,
-      cakeMessage: item.cakeMessage || '',
+      cakeMessage: item.cakeMessage ? String(item.cakeMessage).trim() : '',
       flavour: item.flavour || (product?.flavours?.[0] ?? 'Classic'),
     };
   });
 
   const isMidnight = deliverySlot === 'midnight';
-  const deliveryFee = BUSINESS_CONFIG.freeDeliveryThreshold === 0 ? 0 : (
-    calculatedSubtotal >= BUSINESS_CONFIG.freeDeliveryThreshold
+  const freeThreshold = storeSettings.freeDeliveryThreshold !== undefined ? storeSettings.freeDeliveryThreshold : BUSINESS_CONFIG.freeDeliveryThreshold;
+  const deliveryFee = freeThreshold === 0 ? 0 : (
+    calculatedSubtotal >= freeThreshold
       ? (isMidnight ? 99 : 0)
       : (isMidnight ? BUSINESS_CONFIG.expressMidnightDeliveryFee : BUSINESS_CONFIG.standardDeliveryFee)
   );
 
-  const discount = calculatedSubtotal > 1500 ? Math.round(calculatedSubtotal * 0.1) : 0;
-  const total = Math.max(0, calculatedSubtotal + deliveryFee - discount);
+  // Server-side Promo Code Validation
+  let promoDiscount = 0;
+  if (promoCode && typeof promoCode === 'string') {
+    const cleanPromo = promoCode.trim().toUpperCase();
+    if (cleanPromo === 'SWEETBLISS10') {
+      promoDiscount = Math.min(200, Math.round(calculatedSubtotal * 0.10));
+    } else if (cleanPromo === 'CHEFJOY20' && calculatedSubtotal >= 1500) {
+      promoDiscount = Math.min(400, Math.round(calculatedSubtotal * 0.20));
+    } else if (cleanPromo === 'BLISS50' && calculatedSubtotal >= 499) {
+      promoDiscount = 50;
+    }
+  }
+
+  // Server-side Loyalty Points Validation
+  const validPoints = Math.max(0, Math.min(Number(pointsToRedeem) || 0, Number(userPointsAvailable) || 0));
+  // 1 point = ₹1, maximum 20% of subtotal can be covered with points
+  const maxAllowedPoints = Math.round(calculatedSubtotal * 0.2);
+  const actualPointsRedeemed = Math.min(validPoints, maxAllowedPoints);
+  const pointsDiscount = actualPointsRedeemed;
+
+  const totalDiscount = promoDiscount + pointsDiscount;
+  const total = Math.max(0, calculatedSubtotal + deliveryFee - totalDiscount);
   const totalPaise = total * 100;
 
   return {
     subtotal: calculatedSubtotal,
     deliveryFee,
-    discount,
+    discount: totalDiscount,
+    promoDiscount,
+    pointsDiscount,
+    pointsRedeemed: actualPointsRedeemed,
     total,
     totalPaise,
     validatedItems,
@@ -444,7 +754,7 @@ if (process.env.GEMINI_API_KEY) {
 // -------------------------------------------------------------
 app.get('/api/products', (req: Request, res: Response) => {
   const { category, search, occasion } = req.query;
-  let filtered = [...PRODUCTS];
+  let filtered = [...productsStore];
 
   if (category && category !== 'all') {
     filtered = filtered.filter((p) => p.category === category);
@@ -470,7 +780,7 @@ app.get('/api/products', (req: Request, res: Response) => {
     return {
       ...p,
       price: override?.customPrice ?? p.price,
-      isOutOfStock: Boolean(override?.isOutOfStock),
+      isOutOfStock: override?.isOutOfStock !== undefined ? override.isOutOfStock : (p.inStock === false),
     };
   });
 
@@ -499,7 +809,7 @@ app.get('/api/payment/config', (_req: Request, res: Response) => {
 // Initiate Razorpay Order with server-calculated amount
 app.post('/api/payment/razorpay-order', async (req: Request, res: Response) => {
   try {
-    const { customer, items, deliveryDate, deliverySlot, orderNotes } = req.body;
+    const { customer, items, deliveryDate, deliverySlot, orderNotes, promoCode, pointsRedeemed } = req.body;
 
     if (!customer?.fullName || !customer?.phone || !customer?.address) {
       return res.status(400).json({ error: 'Customer name, phone, and delivery address are required' });
@@ -509,7 +819,18 @@ app.post('/api/payment/razorpay-order', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Order must contain at least one item' });
     }
 
-    const financials = calculateOrderFinancials(items, deliverySlot || 'evening');
+    const authUser = getAuthUser(req);
+    const user = authUser ||
+      (customer.email ? usersStore.find((u) => u.email.toLowerCase() === customer.email.toLowerCase().trim()) : null) ||
+      (customer.phone ? usersStore.find((u) => u.phone.includes(customer.phone.replace(/\D/g, '').slice(-10))) : null);
+
+    const financials = calculateOrderFinancials(
+      items,
+      deliverySlot || 'evening',
+      promoCode,
+      pointsRedeemed ? Number(pointsRedeemed) : 0,
+      user?.loyaltyPoints || 0
+    );
     const orderId = `SB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const rzpOrder = await createRazorpayOrderOnGateway(
@@ -997,12 +1318,22 @@ app.post('/api/orders', (req: Request, res: Response) => {
       });
     }
 
-    const financials = calculateOrderFinancials(items, deliverySlot || 'evening');
+    const authUser = getAuthUser(req);
+    const user = authUser ||
+      (customer.email ? usersStore.find((u) => u.email.toLowerCase() === customer.email.toLowerCase().trim()) : null) ||
+      (customer.phone ? usersStore.find((u) => u.phone.includes(customer.phone.replace(/\D/g, '').slice(-10))) : null);
+
+    const financials = calculateOrderFinancials(
+      items,
+      deliverySlot || 'evening',
+      req.body.promoCode || promoDiscount ? 'SWEETBLISS10' : undefined,
+      pointsRedeemed ? Number(pointsRedeemed) : (pointsDiscount ? Number(pointsDiscount) : 0),
+      user?.loyaltyPoints || 0
+    );
     const orderId = `SB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const extraDiscount = (Number(promoDiscount) || 0) + (Number(pointsDiscount) || 0);
-    const finalDiscount = financials.discount + extraDiscount;
-    const finalTotal = Math.max(0, financials.subtotal + financials.deliveryFee - finalDiscount);
+    const finalDiscount = financials.discount;
+    const finalTotal = financials.total;
 
     const isCOD = paymentMethod === 'COD' || paymentMethod?.toLowerCase()?.includes('cash on delivery');
     const txnId = transactionId || (isCOD ? undefined : `TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`);
@@ -1076,9 +1407,14 @@ app.post('/api/orders', (req: Request, res: Response) => {
       message: 'Order created successfully',
       order: newOrder,
     });
-  } catch (err: unknown) {
+  } catch (err: any) {
     console.error('Order creation error:', err);
-    res.status(500).json({ error: 'Failed to process order' });
+    const errorMsg = err?.message || 'Failed to process order';
+    const isClientError =
+      errorMsg.includes('sold out') ||
+      errorMsg.includes('not found') ||
+      errorMsg.includes('at least one');
+    res.status(isClientError ? 400 : 500).json({ error: errorMsg });
   }
 });
 
@@ -1198,20 +1534,241 @@ app.post('/api/orders/:orderId/simulate-stage', (req: Request, res: Response) =>
 });
 
 // -------------------------------------------------------------
-// 5. PROTECTED BAKERY ADMIN MANAGEMENT API
+// 5. PROTECTED BAKERY ADMIN MANAGEMENT API & SECURITY
 // -------------------------------------------------------------
-const ADMIN_API_KEY = process.env.ADMIN_KEY || 'sweetbliss-admin-2026';
-
-function verifyAdminAuth(req: Request, res: Response, next: () => void) {
-  const authHeader = req.headers['x-admin-key'] || req.headers.authorization;
-  if (!authHeader || authHeader !== ADMIN_API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized: Admin authentication key required' });
-  }
-  next();
+export interface AdminSession {
+  username: string;
+  role: 'superadmin' | 'manager';
+  createdAt: number;
+  expiresAt: number;
 }
 
+const adminSessions = new Map<string, AdminSession>();
+
+interface LoginAttempt {
+  count: number;
+  firstAttempt: number;
+  lockedUntil?: number;
+}
+const adminLoginAttempts = new Map<string, LoginAttempt>();
+
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'sweetbliss-admin-2026';
+const ADMIN_API_KEY = process.env.ADMIN_KEY || 'sweetbliss-admin-2026';
+
+const adminPasswordHash = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest('hex');
+
+function verifyAdminAuth(req: Request, res: Response, next: () => void) {
+  const authHeader = req.headers.authorization;
+  const adminKeyHeader = (req.headers['x-admin-key'] || req.headers['x-admin-token']) as string;
+
+  // 1. Session token via Authorization: Bearer <token>
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring(7).trim();
+    const session = adminSessions.get(token);
+    if (session && session.expiresAt > Date.now()) {
+      (req as any).adminUser = session;
+      return next();
+    }
+  }
+
+  // 2. Direct session token in x-admin-key or x-admin-token header
+  if (adminKeyHeader && adminSessions.has(adminKeyHeader)) {
+    const session = adminSessions.get(adminKeyHeader);
+    if (session && session.expiresAt > Date.now()) {
+      (req as any).adminUser = session;
+      return next();
+    }
+  }
+
+  // 3. Static admin key or secret verification (for internal server/tool calls)
+  if (adminKeyHeader && (adminKeyHeader === ADMIN_API_KEY || adminKeyHeader === ADMIN_PASSWORD)) {
+    (req as any).adminUser = { username: ADMIN_USERNAME, role: 'superadmin', createdAt: Date.now(), expiresAt: Date.now() + 86400000 };
+    return next();
+  }
+
+  if (authHeader && (authHeader === ADMIN_API_KEY || authHeader === ADMIN_PASSWORD)) {
+    (req as any).adminUser = { username: ADMIN_USERNAME, role: 'superadmin', createdAt: Date.now(), expiresAt: Date.now() + 86400000 };
+    return next();
+  }
+
+  return res.status(401).json({
+    error: 'Unauthorized: Valid admin session token or credentials required',
+    code: 'ADMIN_AUTH_REQUIRED',
+  });
+}
+
+// Admin Login endpoint with rate limiting & session creation
+app.post('/api/admin/login', (req: Request, res: Response) => {
+  const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+
+  const attempt = adminLoginAttempts.get(clientIp);
+  if (attempt && attempt.lockedUntil && attempt.lockedUntil > now) {
+    const remainingSec = Math.ceil((attempt.lockedUntil - now) / 1000);
+    return res.status(429).json({
+      error: `Too many failed login attempts. Portal temporarily locked for ${remainingSec} seconds for security.`,
+      lockedUntil: attempt.lockedUntil,
+    });
+  }
+
+  const { username, password, key } = req.body;
+
+  let isValid = false;
+  let authenticatedUser = ADMIN_USERNAME;
+
+  if (key && (key === ADMIN_API_KEY || key === ADMIN_PASSWORD)) {
+    isValid = true;
+  } else if (password) {
+    const inputHash = crypto.createHash('sha256').update(password).digest('hex');
+    const uMatches = !username || username.trim() === ADMIN_USERNAME || username.trim().toLowerCase() === 'ansariwazid1995@gmail.com' || username.trim().toLowerCase() === 'admin@sweetbliss.com';
+    const pMatches = password === ADMIN_PASSWORD || inputHash === adminPasswordHash || password === ADMIN_API_KEY;
+    if (uMatches && pMatches) {
+      isValid = true;
+      authenticatedUser = username?.trim() || ADMIN_USERNAME;
+    }
+  }
+
+  if (isValid) {
+    adminLoginAttempts.delete(clientIp);
+    const sessionToken = `adm_${crypto.randomBytes(32).toString('hex')}`;
+    const session: AdminSession = {
+      username: authenticatedUser,
+      role: 'superadmin',
+      createdAt: now,
+      expiresAt: now + 8 * 60 * 60 * 1000, // 8 hours
+    };
+    adminSessions.set(sessionToken, session);
+
+    return res.json({
+      success: true,
+      message: 'Admin authentication successful',
+      token: sessionToken,
+      admin: {
+        username: session.username,
+        role: session.role,
+      },
+      expiresIn: 28800,
+    });
+  }
+
+  // Record failed attempt
+  const currentAttempt = adminLoginAttempts.get(clientIp) || { count: 0, firstAttempt: now };
+  currentAttempt.count += 1;
+  if (currentAttempt.count >= 5) {
+    currentAttempt.lockedUntil = now + 5 * 60 * 1000; // 5 min lock
+  }
+  adminLoginAttempts.set(clientIp, currentAttempt);
+
+  return res.status(401).json({
+    error: 'Invalid admin username, password, or security key.',
+    remainingAttempts: Math.max(0, 5 - currentAttempt.count),
+  });
+});
+
+// Admin Logout endpoint
+app.post('/api/admin/logout', (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  const adminKeyHeader = (req.headers['x-admin-key'] || req.headers['x-admin-token']) as string;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : adminKeyHeader;
+
+  if (token && adminSessions.has(token)) {
+    adminSessions.delete(token);
+  }
+
+  res.json({ success: true, message: 'Admin logged out successfully. Session invalidated.' });
+});
+
+// Current Admin Session verification
+app.get('/api/admin/me', verifyAdminAuth, (req: Request, res: Response) => {
+  const adminUser = (req as any).adminUser || { username: ADMIN_USERNAME, role: 'superadmin' };
+  res.json({
+    success: true,
+    admin: {
+      username: adminUser.username,
+      role: adminUser.role,
+    },
+  });
+});
+
+// Real Database-driven Order Analytics
+app.get('/api/admin/analytics', verifyAdminAuth, (_req: Request, res: Response) => {
+  const activeOrders = ordersStore.filter((o) => o.status !== 'Cancelled');
+  const cancelledOrders = ordersStore.filter((o) => o.status === 'Cancelled');
+
+  const totalOrders = ordersStore.length;
+  const confirmedCount = ordersStore.filter((o) => o.status === 'Order Confirmed').length;
+  const preparingCount = ordersStore.filter((o) => o.status === 'Preparing Your Order').length;
+  const readyCount = ordersStore.filter((o) => o.status === 'Ready for Dispatch').length;
+  const outForDeliveryCount = ordersStore.filter((o) => o.status === 'Out for Delivery').length;
+  const deliveredCount = ordersStore.filter((o) => o.status === 'Delivered').length;
+  const cancelledCount = cancelledOrders.length;
+
+  // Net revenue strictly excludes cancelled orders
+  const netRevenue = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const totalUnits = activeOrders.reduce((sum, o) => sum + (o.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0), 0);
+  const averageOrderValue = activeOrders.length > 0 ? Math.round(netRevenue / activeOrders.length) : 0;
+  const paidOrders = activeOrders.filter((o) => o.paymentStatus === 'PAID').length;
+  const paidRate = activeOrders.length > 0 ? Math.round((paidOrders / activeOrders.length) * 100) : 100;
+
+  // Real Category Breakdown
+  const catMap = new Map<string, { category: string; revenue: number; units: number }>();
+  activeOrders.forEach((o) => {
+    (o.items || []).forEach((item) => {
+      const prod = productsStore.find((p) => p.id === item.productId);
+      const cat = prod?.categoryLabel || 'Artisan Cakes';
+      const cur = catMap.get(cat) || { category: cat, revenue: 0, units: 0 };
+      cur.revenue += (item.price || 0) * (item.quantity || 1);
+      cur.units += item.quantity || 1;
+      catMap.set(cat, cur);
+    });
+  });
+
+  // Real Daily Trends for the past 14 days
+  const dayMap = new Map<string, { date: string; fullDate: string; revenue: number; orders: number }>();
+  const today = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = d.toISOString().split('T')[0];
+    const label = d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    dayMap.set(key, { date: label, fullDate: key, revenue: 0, orders: 0 });
+  }
+
+  activeOrders.forEach((o) => {
+    const orderDate = new Date(o.createdAt).toISOString().split('T')[0];
+    const bucket = dayMap.get(orderDate);
+    if (bucket) {
+      bucket.revenue += o.total || 0;
+      bucket.orders += 1;
+    }
+  });
+
+  res.json({
+    success: true,
+    kpis: {
+      totalOrders,
+      activeOrdersCount: activeOrders.length,
+      netRevenue,
+      totalUnits,
+      averageOrderValue,
+      paidRate,
+      deliveredCount,
+      cancelledCount,
+      confirmedCount,
+      preparingCount,
+      readyCount,
+      outForDeliveryCount,
+    },
+    categoryBreakdown: Array.from(catMap.values()),
+    dailyTrends: Array.from(dayMap.values()),
+    productCount: productsStore.length,
+  });
+});
+
+// GET Orders with Search, Filter & Sorting
 app.get('/api/admin/orders', verifyAdminAuth, (req: Request, res: Response) => {
-  const { status, search } = req.query;
+  const { status, search, sortBy } = req.query;
   let result = [...ordersStore];
 
   if (status && status !== 'all') {
@@ -1223,9 +1780,24 @@ app.get('/api/admin/orders', verifyAdminAuth, (req: Request, res: Response) => {
     result = result.filter(
       (o) =>
         o.orderId.toLowerCase().includes(q) ||
-        o.customer.fullName.toLowerCase().includes(q) ||
-        o.customer.phone.includes(q)
+        o.customer?.fullName?.toLowerCase().includes(q) ||
+        o.customer?.phone?.includes(q) ||
+        o.customer?.email?.toLowerCase().includes(q)
     );
+  }
+
+  // Sorting
+  if (sortBy === 'date-asc') {
+    result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  } else if (sortBy === 'amount-desc') {
+    result.sort((a, b) => (b.total || 0) - (a.total || 0));
+  } else if (sortBy === 'amount-asc') {
+    result.sort((a, b) => (a.total || 0) - (b.total || 0));
+  } else if (sortBy === 'delivery-date') {
+    result.sort((a, b) => (a.deliveryDate || '').localeCompare(b.deliveryDate || ''));
+  } else {
+    // Default: date-desc (newest first)
+    result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   res.json({
@@ -1241,6 +1813,16 @@ app.get('/api/admin/orders', verifyAdminAuth, (req: Request, res: Response) => {
       cancelled: ordersStore.filter((o) => o.status === 'Cancelled').length,
     },
   });
+});
+
+// Single Order Lookup
+app.get('/api/admin/orders/:orderId', verifyAdminAuth, (req: Request, res: Response) => {
+  const { orderId } = req.params;
+  const order = ordersStore.find((o) => o.orderId.toUpperCase() === orderId.toUpperCase());
+  if (!order) {
+    return res.status(404).json({ error: 'Order not found' });
+  }
+  res.json({ success: true, order });
 });
 
 // CSV Export Endpoint for Store Accounting and Kitchen Inventory
@@ -1462,16 +2044,39 @@ app.patch('/api/admin/orders/:orderId/status', verifyAdminAuth, (req: Request, r
   }
 
   if (status) {
+    // Stage transition validation rules
+    if (order.status === 'Delivered' && status !== 'Delivered') {
+      return res.status(400).json({
+        error: 'Delivered orders cannot be moved back to an earlier stage.',
+        currentStatus: order.status,
+      });
+    }
+
+    if (status === 'Cancelled') {
+      if (!cancellationReason || !cancellationReason.trim()) {
+        return res.status(400).json({ error: 'A cancellation reason is required to cancel an order.' });
+      }
+      order.cancellationReason = cancellationReason.trim();
+    } else if (order.status === 'Cancelled') {
+      return res.status(400).json({
+        error: 'Cancelled orders cannot be reopened directly. Please create a new replacement order.',
+        currentStatus: order.status,
+      });
+    }
+
     order.status = status;
+    if (!order.statusHistory) {
+      order.statusHistory = [];
+    }
     order.statusHistory.push({
       status,
       timestamp: new Date().toISOString(),
-      note: note || `Status updated to ${status} by bakery manager`,
+      note: note || (status === 'Cancelled' ? `Order cancelled: ${cancellationReason}` : `Status updated to ${status} by bakery manager`),
     });
   }
 
   if (cancellationReason) {
-    order.cancellationReason = cancellationReason;
+    order.cancellationReason = cancellationReason.trim();
   }
 
   if (paymentStatus) {
@@ -1488,10 +2093,10 @@ app.patch('/api/admin/orders/:orderId/status', verifyAdminAuth, (req: Request, r
 });
 
 // -------------------------------------------------------------
-// 5B. ADMIN MENU & STORE SETTINGS MANAGEMENT API
+// 5B. ADMIN MENU & PRODUCT CATALOGUE MANAGEMENT API
 // -------------------------------------------------------------
 app.get('/api/admin/menu', verifyAdminAuth, (_req: Request, res: Response) => {
-  const menuList = PRODUCTS.map((p) => {
+  const menuList = productsStore.map((p) => {
     const override = menuOverrides[p.id];
     return {
       id: p.id,
@@ -1499,19 +2104,175 @@ app.get('/api/admin/menu', verifyAdminAuth, (_req: Request, res: Response) => {
       category: p.category,
       categoryLabel: p.categoryLabel,
       image: p.image,
+      tagline: p.tagline,
+      description: p.description,
+      flavours: p.flavours,
       basePrice: p.price,
       currentPrice: override?.customPrice ?? p.price,
-      isOutOfStock: Boolean(override?.isOutOfStock),
+      isOutOfStock: override?.isOutOfStock !== undefined ? override.isOutOfStock : (p.inStock === false),
       rating: p.rating,
       badge: p.badge,
+      sizes: p.sizes,
+      dietaryOptions: p.dietaryOptions,
     };
   });
   res.json({ success: true, menu: menuList, count: menuList.length });
 });
 
+// Alias for products
+app.get('/api/admin/products', verifyAdminAuth, (_req: Request, res: Response) => {
+  const menuList = productsStore.map((p) => {
+    const override = menuOverrides[p.id];
+    return {
+      ...p,
+      price: override?.customPrice ?? p.price,
+      isOutOfStock: override?.isOutOfStock !== undefined ? override.isOutOfStock : (p.inStock === false),
+    };
+  });
+  res.json({ success: true, products: menuList, count: menuList.length });
+});
+
+// Add New Product
+app.post('/api/admin/products', verifyAdminAuth, (req: Request, res: Response) => {
+  try {
+    const { name, category, categoryLabel, price, image, tagline, description, flavours, badge, isEggless } = req.body;
+
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      return res.status(400).json({ error: 'Product name must be at least 2 characters long.' });
+    }
+
+    const numPrice = Math.round(Number(price));
+    if (isNaN(numPrice) || numPrice <= 0) {
+      return res.status(400).json({ error: 'Product price must be a valid positive number.' });
+    }
+
+    const id = `cake-${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
+
+    const newProduct: CakeProduct = {
+      id,
+      name: name.trim(),
+      tagline: tagline ? String(tagline).trim() : 'Artisan handcrafted fresh daily',
+      category: category || 'cakes',
+      categoryLabel: categoryLabel || 'Specialty Cakes',
+      price: numPrice,
+      rating: 5.0,
+      reviewsCount: 1,
+      image: image || '/src/assets/images/featured_chocolate_truffle_1791733075545.jpg',
+      badge: badge || undefined,
+      description: description ? String(description).trim() : `${name.trim()} prepared fresh daily with the finest ingredients.`,
+      flavours: Array.isArray(flavours) && flavours.length > 0 ? flavours : ['Classic Artisan'],
+      sizes: [
+        { label: '0.5 kg (Serves 4-6)', weightKg: 0.5, priceMultiplier: 1.0 },
+        { label: '1.0 kg (Serves 8-12)', weightKg: 1.0, priceMultiplier: 1.85 },
+        { label: '2.0 kg (Serves 18-24)', weightKg: 2.0, priceMultiplier: 3.5 },
+      ],
+      isEggless: isEggless ?? true,
+      inStock: true,
+      dietaryOptions: isEggless ? ['Eggless', 'Vegan Option'] : ['Contains Egg'],
+      ingredients: ['Flour', 'Butter/Cream', 'Organic Sugar', 'Artisan Chocolate / Vanilla'],
+      allergens: ['Dairy', 'Gluten'],
+      prepTimeHours: 3,
+      occasions: ['Birthday', 'Anniversary', 'Celebration'],
+    };
+
+    productsStore.unshift(newProduct);
+    saveProducts(productsStore);
+
+    res.status(201).json({
+      success: true,
+      message: `Product "${newProduct.name}" created successfully.`,
+      product: newProduct,
+    });
+  } catch (err: any) {
+    console.error('Create product error:', err);
+    res.status(500).json({ error: 'Failed to create product' });
+  }
+});
+
+// Update Existing Product
+app.put('/api/admin/products/:id', verifyAdminAuth, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const product = productsStore.find((p) => p.id === id);
+  if (!product) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+
+  const { name, category, categoryLabel, price, image, tagline, description, flavours, badge, isOutOfStock } = req.body;
+
+  if (name !== undefined) {
+    if (typeof name !== 'string' || name.trim().length < 2) {
+      return res.status(400).json({ error: 'Product name must be at least 2 characters long.' });
+    }
+    product.name = name.trim();
+  }
+
+  if (price !== undefined) {
+    const numPrice = Math.round(Number(price));
+    if (isNaN(numPrice) || numPrice <= 0) {
+      return res.status(400).json({ error: 'Price must be a valid positive number.' });
+    }
+    product.price = numPrice;
+    if (menuOverrides[id]) {
+      menuOverrides[id].customPrice = numPrice;
+      saveMenuOverrides(menuOverrides);
+    }
+  }
+
+  if (category) product.category = category;
+  if (categoryLabel) product.categoryLabel = categoryLabel;
+  if (image) product.image = image;
+  if (tagline !== undefined) product.tagline = String(tagline).trim();
+  if (description !== undefined) product.description = String(description).trim();
+  if (Array.isArray(flavours)) product.flavours = flavours;
+  if (badge !== undefined) product.badge = badge || undefined;
+
+  if (isOutOfStock !== undefined) {
+    product.inStock = !isOutOfStock;
+    menuOverrides[id] = { ...menuOverrides[id], isOutOfStock: Boolean(isOutOfStock) };
+    saveMenuOverrides(menuOverrides);
+  }
+
+  saveProducts(productsStore);
+
+  res.json({
+    success: true,
+    message: `Product "${product.name}" updated successfully.`,
+    product,
+  });
+});
+
+// Delete Product
+app.delete('/api/admin/products/:id', verifyAdminAuth, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const idx = productsStore.findIndex((p) => p.id === id);
+  if (idx === -1) {
+    return res.status(404).json({ error: 'Product not found' });
+  }
+
+  const removed = productsStore.splice(idx, 1)[0];
+  if (menuOverrides[id]) {
+    delete menuOverrides[id];
+    saveMenuOverrides(menuOverrides);
+  }
+  saveProducts(productsStore);
+
+  res.json({
+    success: true,
+    message: `Product "${removed.name}" deleted successfully.`,
+    deletedId: id,
+  });
+});
+
 app.post('/api/admin/menu/toggle-stock', verifyAdminAuth, (req: Request, res: Response) => {
   const { productId, isOutOfStock } = req.body;
   if (!productId) return res.status(400).json({ error: 'Product ID is required' });
+  
+  const product = productsStore.find((p) => p.id === productId);
+  if (product) {
+    product.inStock = !isOutOfStock;
+    saveProducts(productsStore);
+  }
+
   menuOverrides[productId] = { ...menuOverrides[productId], isOutOfStock: Boolean(isOutOfStock) };
   saveMenuOverrides(menuOverrides);
   res.json({ success: true, productId, isOutOfStock: Boolean(isOutOfStock) });
@@ -1523,6 +2284,13 @@ app.post('/api/admin/menu/update-price', verifyAdminAuth, (req: Request, res: Re
   if (!productId || isNaN(numPrice) || numPrice <= 0) {
     return res.status(400).json({ error: 'Valid Product ID and price are required' });
   }
+
+  const product = productsStore.find((p) => p.id === productId);
+  if (product) {
+    product.price = numPrice;
+    saveProducts(productsStore);
+  }
+
   menuOverrides[productId] = { ...menuOverrides[productId], customPrice: numPrice };
   saveMenuOverrides(menuOverrides);
   res.json({ success: true, productId, currentPrice: numPrice });
@@ -1537,6 +2305,239 @@ app.post('/api/admin/settings', verifyAdminAuth, (req: Request, res: Response) =
   storeSettings = updated;
   saveStoreSettings(storeSettings);
   res.json({ success: true, settings: storeSettings });
+});
+
+// -------------------------------------------------------------
+// 5D. BAKING INGREDIENTS & STOCK TRACKING API
+// -------------------------------------------------------------
+
+// Calculate estimated live demand from active orders in baking/kitchen pipeline
+function calculateLiveBakingDemand(orders: StoredOrder[]) {
+  const activeOrders = orders.filter(
+    (o) => o.status !== 'Delivered' && o.status !== 'Cancelled'
+  );
+
+  let totalActiveCakeKg = 0;
+  let totalActiveOrders = activeOrders.length;
+  let chocolateCakeKg = 0;
+
+  for (const ord of activeOrders) {
+    if (Array.isArray(ord.items)) {
+      for (const it of ord.items) {
+        const kg = (Number(it.weightKg) || 0.5) * (Number(it.quantity) || 1);
+        totalActiveCakeKg += kg;
+        if (
+          it.name?.toLowerCase().includes('chocolate') ||
+          it.name?.toLowerCase().includes('truffle') ||
+          it.name?.toLowerCase().includes('fudge') ||
+          it.flavour?.toLowerCase().includes('chocolate')
+        ) {
+          chocolateCakeKg += kg;
+        }
+      }
+    }
+  }
+
+  // Artisan baking ratios per 1.0 kg finished frosted cake:
+  // ~0.35kg flour, ~0.25kg butter, ~0.30L cream, ~0.20kg sugar, ~0.22kg chocolate (for choc cakes)
+  return {
+    totalActiveOrders,
+    totalActiveCakeKg: Math.round(totalActiveCakeKg * 10) / 10,
+    estimatedDemand: {
+      flourKg: Math.round(totalActiveCakeKg * 0.35 * 10) / 10,
+      butterKg: Math.round(totalActiveCakeKg * 0.25 * 10) / 10,
+      creamLiters: Math.round(totalActiveCakeKg * 0.30 * 10) / 10,
+      sugarKg: Math.round(totalActiveCakeKg * 0.20 * 10) / 10,
+      chocolateKg: Math.round(chocolateCakeKg * 0.25 * 10) / 10,
+    },
+  };
+}
+
+// 1. Get all ingredients with real-time stock analysis
+app.get('/api/admin/ingredients', verifyAdminAuth, (_req: Request, res: Response) => {
+  const lowStock = ingredientsStore.filter((i) => i.currentStock <= i.minimumThreshold);
+  const criticalStock = ingredientsStore.filter((i) => i.currentStock <= i.minimumThreshold * 0.5);
+  const totalValue = ingredientsStore.reduce(
+    (acc, curr) => acc + Math.round(curr.currentStock * curr.costPerUnit),
+    0
+  );
+
+  const liveDemand = calculateLiveBakingDemand(ordersStore);
+
+  res.json({
+    success: true,
+    ingredients: ingredientsStore,
+    summary: {
+      totalCount: ingredientsStore.length,
+      lowStockCount: lowStock.length,
+      criticalCount: criticalStock.length,
+      totalInventoryValueINR: totalValue,
+      healthyCount: ingredientsStore.length - lowStock.length,
+    },
+    liveDemand,
+  });
+});
+
+// 2. Add New Ingredient
+app.post('/api/admin/ingredients', verifyAdminAuth, (req: Request, res: Response) => {
+  try {
+    const {
+      name,
+      category,
+      currentStock,
+      unit,
+      minimumThreshold,
+      idealStock,
+      costPerUnit,
+      supplier,
+      storageLocation,
+      expiryDate,
+      notes,
+    } = req.body;
+
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      return res.status(400).json({ error: 'Valid ingredient name is required (min 2 chars).' });
+    }
+
+    const stockNum = Math.max(0, Number(currentStock) || 0);
+    const minNum = Math.max(0, Number(minimumThreshold) || 5);
+    const idealNum = Math.max(minNum, Number(idealStock) || minNum * 3);
+    const costNum = Math.max(0, Math.round(Number(costPerUnit) || 0));
+
+    const id = `ing-${name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`;
+
+    const newIngredient: StoredIngredient = {
+      id,
+      name: name.trim(),
+      category: category || 'Flour & Grains',
+      currentStock: stockNum,
+      unit: unit || 'kg',
+      minimumThreshold: minNum,
+      idealStock: idealNum,
+      costPerUnit: costNum,
+      supplier: supplier ? String(supplier).trim() : 'Local Bangalore Wholesaler',
+      lastRestocked: new Date().toISOString(),
+      expiryDate: expiryDate ? String(expiryDate).trim() : undefined,
+      storageLocation: storageLocation ? String(storageLocation).trim() : 'Main Bakery Pantry',
+      notes: notes ? String(notes).trim() : undefined,
+    };
+
+    ingredientsStore.unshift(newIngredient);
+    saveIngredients(ingredientsStore);
+
+    res.status(201).json({
+      success: true,
+      message: `Ingredient "${newIngredient.name}" added to inventory`,
+      ingredient: newIngredient,
+    });
+  } catch (err: any) {
+    console.error('Create ingredient error:', err);
+    res.status(500).json({ error: 'Failed to create ingredient' });
+  }
+});
+
+// 3. Update Existing Ingredient Details
+app.put('/api/admin/ingredients/:id', verifyAdminAuth, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const index = ingredientsStore.findIndex((i) => i.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: `Ingredient not found with ID: ${id}` });
+  }
+
+  const existing = ingredientsStore[index];
+  const {
+    name,
+    category,
+    currentStock,
+    unit,
+    minimumThreshold,
+    idealStock,
+    costPerUnit,
+    supplier,
+    storageLocation,
+    expiryDate,
+    notes,
+  } = req.body;
+
+  const updated: StoredIngredient = {
+    ...existing,
+    name: name !== undefined ? String(name).trim() : existing.name,
+    category: category !== undefined ? category : existing.category,
+    currentStock: currentStock !== undefined ? Math.max(0, Number(currentStock)) : existing.currentStock,
+    unit: unit !== undefined ? unit : existing.unit,
+    minimumThreshold: minimumThreshold !== undefined ? Math.max(0, Number(minimumThreshold)) : existing.minimumThreshold,
+    idealStock: idealStock !== undefined ? Math.max(0, Number(idealStock)) : existing.idealStock,
+    costPerUnit: costPerUnit !== undefined ? Math.max(0, Number(costPerUnit)) : existing.costPerUnit,
+    supplier: supplier !== undefined ? String(supplier).trim() : existing.supplier,
+    storageLocation: storageLocation !== undefined ? String(storageLocation).trim() : existing.storageLocation,
+    expiryDate: expiryDate !== undefined ? String(expiryDate).trim() : existing.expiryDate,
+    notes: notes !== undefined ? String(notes).trim() : existing.notes,
+  };
+
+  ingredientsStore[index] = updated;
+  saveIngredients(ingredientsStore);
+
+  res.json({
+    success: true,
+    message: `Ingredient "${updated.name}" updated successfully`,
+    ingredient: updated,
+  });
+});
+
+// 4. Quick Stock Adjustment (+Restock, -Used in Batch, or Manual Count)
+app.post('/api/admin/ingredients/:id/adjust', verifyAdminAuth, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { delta, reason } = req.body;
+
+  const numDelta = Number(delta);
+  if (isNaN(numDelta)) {
+    return res.status(400).json({ error: 'Valid adjustment delta number is required (positive or negative).' });
+  }
+
+  const index = ingredientsStore.findIndex((i) => i.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: `Ingredient not found with ID: ${id}` });
+  }
+
+  const existing = ingredientsStore[index];
+  const newStock = Math.max(0, Math.round((existing.currentStock + numDelta) * 100) / 100);
+
+  const updated: StoredIngredient = {
+    ...existing,
+    currentStock: newStock,
+    lastRestocked: numDelta > 0 ? new Date().toISOString() : existing.lastRestocked,
+  };
+
+  ingredientsStore[index] = updated;
+  saveIngredients(ingredientsStore);
+
+  res.json({
+    success: true,
+    message: `Stock for "${updated.name}" updated from ${existing.currentStock} to ${newStock} ${updated.unit} (${reason || (numDelta > 0 ? 'Restock' : 'Usage')})`,
+    ingredient: updated,
+    previousStock: existing.currentStock,
+    newStock,
+  });
+});
+
+// 5. Delete Ingredient
+app.delete('/api/admin/ingredients/:id', verifyAdminAuth, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const index = ingredientsStore.findIndex((i) => i.id === id);
+
+  if (index === -1) {
+    return res.status(404).json({ error: `Ingredient not found with ID: ${id}` });
+  }
+
+  const removed = ingredientsStore.splice(index, 1)[0];
+  saveIngredients(ingredientsStore);
+
+  res.json({
+    success: true,
+    message: `Ingredient "${removed.name}" removed from tracking`,
+    removedId: id,
+  });
 });
 
 // -------------------------------------------------------------

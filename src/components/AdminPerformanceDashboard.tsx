@@ -57,32 +57,34 @@ export const AdminPerformanceDashboard: React.FC<AdminPerformanceDashboardProps>
   const [timeRange, setTimeRange] = useState<'7d' | '14d' | 'all'>('7d');
   const [salesMetric, setSalesMetric] = useState<'revenue' | 'orders'>('revenue');
 
-  // 1. Calculate Core KPI Summary
+  // 1. Calculate Core KPI Summary from real orders (excluding cancelled orders from revenue)
   const kpis = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
-    const totalUnits = orders.reduce((sum, o) => sum + (o.items?.reduce((s, i) => s + i.quantity, 0) || 0), 0);
-    const avgOrderValue = orders.length > 0 ? Math.round(totalRevenue / orders.length) : 0;
-    const paidOrders = orders.filter((o) => o.paymentStatus === 'PAID').length;
-    const paidRate = orders.length > 0 ? Math.round((paidOrders / orders.length) * 100) : 100;
+    const activeOrders = orders.filter((o) => o.status !== 'Cancelled');
+    const totalRevenue = activeOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const totalUnits = activeOrders.reduce((sum, o) => sum + (o.items?.reduce((s, i) => s + i.quantity, 0) || 0), 0);
+    const avgOrderValue = activeOrders.length > 0 ? Math.round(totalRevenue / activeOrders.length) : 0;
+    const paidOrders = activeOrders.filter((o) => o.paymentStatus === 'PAID').length;
+    const paidRate = activeOrders.length > 0 ? Math.round((paidOrders / activeOrders.length) * 100) : 100;
     const deliveredCount = orders.filter((o) => o.status === 'Delivered').length;
+    const cancelledCount = orders.filter((o) => o.status === 'Cancelled').length;
 
     return {
       totalRevenue,
       totalOrders: orders.length,
+      activeOrdersCount: activeOrders.length,
       totalUnits,
       avgOrderValue,
       paidRate,
       deliveredCount,
+      cancelledCount,
     };
   }, [orders]);
 
-  // 2. Aggregate Daily Sales Trend Data
+  // 2. Aggregate Daily Sales Trend Data from actual orders only
   const dailyTrendsData = useMemo(() => {
-    // Generate dates map for the chosen range
     const daysCount = timeRange === '7d' ? 7 : timeRange === '14d' ? 14 : 30;
     const dayMap = new Map<string, { date: string; fullDate: string; revenue: number; orders: number; aov: number }>();
 
-    // Pre-populate last N days in reverse chronological order
     const today = new Date();
     for (let i = daysCount - 1; i >= 0; i--) {
       const d = new Date(today);
@@ -92,8 +94,8 @@ export const AdminPerformanceDashboard: React.FC<AdminPerformanceDashboardProps>
       dayMap.set(key, { date: label, fullDate: key, revenue: 0, orders: 0, aov: 0 });
     }
 
-    // Accumulate real orders into day buckets
-    orders.forEach((o) => {
+    const activeOrders = orders.filter((o) => o.status !== 'Cancelled');
+    activeOrders.forEach((o) => {
       const orderDate = new Date(o.createdAt).toISOString().split('T')[0];
       const bucket = dayMap.get(orderDate);
       if (bucket) {
@@ -102,50 +104,21 @@ export const AdminPerformanceDashboard: React.FC<AdminPerformanceDashboardProps>
       }
     });
 
-    // Provide baseline realistic demonstration data if store has only 1 or 2 test orders
     const dayEntries = Array.from(dayMap.values());
-    const totalAccumulatedRev = dayEntries.reduce((s, e) => s + e.revenue, 0);
-
-    // If historical orders are clustered in 1 day, provide smooth rolling distribution so charts look lively
-    if (totalAccumulatedRev < 4000) {
-      const simulatedBaseline = [
-        { dayOffset: 6, rev: 3450, ord: 4 },
-        { dayOffset: 5, rev: 4890, ord: 6 },
-        { dayOffset: 4, rev: 4120, ord: 5 },
-        { dayOffset: 3, rev: 6790, ord: 8 },
-        { dayOffset: 2, rev: 5490, ord: 7 },
-        { dayOffset: 1, rev: 7850, ord: 10 },
-      ];
-
-      simulatedBaseline.forEach((sim, idx) => {
-        if (idx < dayEntries.length - 1) {
-          dayEntries[idx].revenue = sim.rev;
-          dayEntries[idx].orders = sim.ord;
-        }
-      });
-      // Ensure latest real orders are included on today's bucket
-      const latestBucket = dayEntries[dayEntries.length - 1];
-      if (latestBucket.revenue === 0) {
-        latestBucket.revenue = 8950;
-        latestBucket.orders = 11;
-      }
-    }
-
     return dayEntries.map((d) => ({
       ...d,
       aov: d.orders > 0 ? Math.round(d.revenue / d.orders) : 0,
     }));
   }, [orders, timeRange]);
 
-  // 3. Aggregate Cake Categories Data
+  // 3. Aggregate Cake Categories Data from real orders
   const categoryData = useMemo(() => {
     const catMap = new Map<string, { category: string; revenue: number; units: number }>();
 
-    // Helper to find category from product database
     const getProductCategory = (prodId: string, prodName: string): string => {
       const found = PRODUCTS.find((p) => p.id === prodId);
+      if (found?.categoryLabel) return found.categoryLabel;
       if (found?.category) {
-        // Humanize category
         return found.category
           .replace(/-/g, ' ')
           .replace(/\b\w/g, (c) => c.toUpperCase());
@@ -157,10 +130,11 @@ export const AdminPerformanceDashboard: React.FC<AdminPerformanceDashboardProps>
       if (lower.includes('red velvet')) return 'Red Velvet';
       if (lower.includes('cupcake')) return 'Artisan Cupcakes';
       if (lower.includes('theme') || lower.includes('unicorn')) return 'Theme & Kids';
-      return 'Signature Cakes';
+      return 'Artisan Cakes';
     };
 
-    orders.forEach((o) => {
+    const activeOrders = orders.filter((o) => o.status !== 'Cancelled');
+    activeOrders.forEach((o) => {
       o.items?.forEach((item) => {
         const cat = getProductCategory(item.productId, item.name);
         const current = catMap.get(cat) || { category: cat, revenue: 0, units: 0 };
@@ -170,22 +144,9 @@ export const AdminPerformanceDashboard: React.FC<AdminPerformanceDashboardProps>
       });
     });
 
-    let result = Array.from(catMap.values());
-
-    // Fallback baseline for visual completeness if small order volume
-    if (result.length < 3) {
-      result = [
-        { category: 'Chocolate Truffle', revenue: 14500, units: 18 },
-        { category: 'Cheesecakes', revenue: 11200, units: 12 },
-        { category: 'Red Velvet', revenue: 8400, units: 10 },
-        { category: 'Fresh Fruit Cakes', revenue: 6900, units: 8 },
-        { category: 'Theme Cakes', revenue: 9800, units: 6 },
-        { category: 'Artisan Cupcakes', revenue: 3800, units: 16 },
-      ];
-    }
-
+    const result = Array.from(catMap.values());
     result.sort((a, b) => b.revenue - a.revenue);
-    const totalCatRev = result.reduce((s, c) => s + c.revenue, 0);
+    const totalCatRev = result.reduce((s, c) => s + c.revenue, 0) || 1;
 
     return result.map((c) => ({
       ...c,
@@ -193,18 +154,19 @@ export const AdminPerformanceDashboard: React.FC<AdminPerformanceDashboardProps>
     }));
   }, [orders]);
 
-  // 4. Payment Methods Distribution Data
+  // 4. Payment Methods Distribution Data from real orders
   const paymentMethodsData = useMemo(() => {
     const payMap = new Map<string, { method: string; count: number; total: number }>();
 
-    orders.forEach((o) => {
+    const activeOrders = orders.filter((o) => o.status !== 'Cancelled');
+    activeOrders.forEach((o) => {
       let m = o.paymentMethod || 'UPI';
       if (m.toLowerCase().includes('gpay') || m.toLowerCase().includes('google')) m = 'Google Pay';
       else if (m.toLowerCase().includes('phonepe')) m = 'PhonePe';
       else if (m.toLowerCase().includes('paytm')) m = 'Paytm';
       else if (m.toLowerCase().includes('card')) m = 'Credit/Debit Card';
       else if (m.toLowerCase().includes('net')) m = 'NetBanking';
-      else if (m.toLowerCase().includes('cod')) m = 'Cash on Delivery';
+      else if (m.toLowerCase().includes('cod') || m.toLowerCase().includes('cash')) m = 'Cash on Delivery';
       else if (m.toLowerCase().includes('upi')) m = 'UPI Apps';
 
       const curr = payMap.get(m) || { method: m, count: 0, total: 0 };
@@ -213,25 +175,16 @@ export const AdminPerformanceDashboard: React.FC<AdminPerformanceDashboardProps>
       payMap.set(m, curr);
     });
 
-    let result = Array.from(payMap.values());
-    if (result.length < 2) {
-      result = [
-        { method: 'Google Pay', count: 18, total: 14900 },
-        { method: 'PhonePe', count: 14, total: 11800 },
-        { method: 'Paytm UPI', count: 9, total: 7200 },
-        { method: 'Card (Visa/RuPay)', count: 8, total: 8400 },
-        { method: 'Cash on Delivery', count: 5, total: 3950 },
-      ];
-    }
-
+    const result = Array.from(payMap.values());
     return result.sort((a, b) => b.total - a.total);
   }, [orders]);
 
-  // 5. Popular Top Selling Items
+  // 5. Popular Top Selling Items from real orders
   const topSellingItems = useMemo(() => {
     const itemMap = new Map<string, { name: string; units: number; revenue: number }>();
 
-    orders.forEach((o) => {
+    const activeOrders = orders.filter((o) => o.status !== 'Cancelled');
+    activeOrders.forEach((o) => {
       o.items?.forEach((i) => {
         const curr = itemMap.get(i.name) || { name: i.name, units: 0, revenue: 0 };
         curr.units += i.quantity;
@@ -240,17 +193,7 @@ export const AdminPerformanceDashboard: React.FC<AdminPerformanceDashboardProps>
       });
     });
 
-    let result = Array.from(itemMap.values());
-    if (result.length < 3) {
-      result = [
-        { name: 'Belgian Dark Chocolate Truffle Cake', units: 14, revenue: 10486 },
-        { name: 'New York Baked Blueberry Cheesecake', units: 9, revenue: 8091 },
-        { name: 'Velvet Rose & Cream Cheese Cake', units: 8, revenue: 6392 },
-        { name: 'Exotic Seasonal Fresh Fruit Gateau', units: 7, revenue: 5243 },
-        { name: 'Butterscotch Crunch Caramel Cake', units: 6, revenue: 3894 },
-      ];
-    }
-
+    const result = Array.from(itemMap.values());
     return result.sort((a, b) => b.units - a.units).slice(0, 5);
   }, [orders]);
 

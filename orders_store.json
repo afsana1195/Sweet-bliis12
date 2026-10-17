@@ -1,5 +1,113 @@
 [
   {
+    "orderId": "SB-2026-4907",
+    "customer": {
+      "fullName": "Priya Sharma",
+      "phone": "9876543210",
+      "email": "priya.sharma@example.com",
+      "address": "Flat 402, Green Glen Layout, Bellandur",
+      "pincode": "560103",
+      "city": "Bangalore"
+    },
+    "items": [
+      {
+        "productId": "cake-saffron-pistachio-royal-gateau-mvcm4rsw",
+        "name": "Saffron Pistachio Royal Gateau",
+        "weightKg": 0.5,
+        "price": 899,
+        "quantity": 1,
+        "isEggless": true,
+        "cakeMessage": "",
+        "flavour": "Kashmiri Saffron"
+      }
+    ],
+    "deliveryDate": "2026-10-20",
+    "deliverySlot": "evening",
+    "paymentMethod": "UPI (Google Pay)",
+    "paymentStatus": "PAID",
+    "transactionId": "TXN_1792254630856_5464",
+    "subtotal": 899,
+    "deliveryFee": 0,
+    "discount": 0,
+    "total": 899,
+    "orderNotes": "",
+    "createdAt": "2026-10-17T16:30:30.856Z",
+    "status": "Preparing Your Order",
+    "statusHistory": [
+      {
+        "status": "Order Placed",
+        "timestamp": "2026-10-17T16:30:30.856Z",
+        "note": "Order placed via UPI (Google Pay)"
+      },
+      {
+        "status": "Order Confirmed",
+        "timestamp": "2026-10-17T16:30:30.856Z",
+        "note": "Payment of ₹899 verified successfully (TXN_1792254630856_5464)"
+      },
+      {
+        "status": "Preparing Your Order",
+        "timestamp": "2026-10-17T16:30:30.859Z",
+        "note": "Baking fresh saffron sponge"
+      }
+    ]
+  },
+  {
+    "orderId": "SB-2026-8521",
+    "customer": {
+      "fullName": "Test Auditor",
+      "phone": "9876543210",
+      "email": "auditor@example.com",
+      "address": "Surya City Phase 2",
+      "city": "Bangalore",
+      "pincode": "562162"
+    },
+    "items": [
+      {
+        "productId": "cake-artisan-saffron-pistachio-gateau-mvcm00vm",
+        "name": "Artisan Royal Saffron Pistachio Gateau",
+        "weightKg": 0.5,
+        "price": 949,
+        "quantity": 1,
+        "isEggless": true,
+        "cakeMessage": "",
+        "flavour": "Kashmiri Saffron"
+      }
+    ],
+    "deliveryDate": "2026-10-18",
+    "deliverySlot": "evening",
+    "paymentMethod": "COD",
+    "paymentStatus": "PENDING",
+    "subtotal": 949,
+    "deliveryFee": 0,
+    "discount": 0,
+    "total": 949,
+    "orderNotes": "",
+    "createdAt": "2026-10-17T16:26:49.357Z",
+    "status": "Delivered",
+    "statusHistory": [
+      {
+        "status": "Order Placed",
+        "timestamp": "2026-10-17T16:26:49.357Z",
+        "note": "Cash on Delivery order booked"
+      },
+      {
+        "status": "Order Confirmed",
+        "timestamp": "2026-10-17T16:26:49.357Z",
+        "note": "Confirmed for doorstep cash/UPI payment"
+      },
+      {
+        "status": "Preparing Your Order",
+        "timestamp": "2026-10-17T16:26:49.366Z",
+        "note": "Executive pastry chef whipped saffron mousse"
+      },
+      {
+        "status": "Delivered",
+        "timestamp": "2026-10-17T16:26:49.368Z",
+        "note": "Delivered to customer doorstep"
+      }
+    ]
+  },
+  {
     "orderId": "SB-2026-7407",
     "customer": {
       "fullName": "Priya Sharma",

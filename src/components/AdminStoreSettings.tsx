@@ -52,6 +52,7 @@ export const AdminStoreSettings: React.FC<AdminStoreSettingsProps> = ({ adminKey
     try {
       const res = await fetch('/api/admin/settings', {
         headers: {
+          Authorization: `Bearer ${adminKey}`,
           'x-admin-key': adminKey,
         },
       });
@@ -97,6 +98,7 @@ export const AdminStoreSettings: React.FC<AdminStoreSettingsProps> = ({ adminKey
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminKey}`,
           'x-admin-key': adminKey,
         },
         body: JSON.stringify(payload),

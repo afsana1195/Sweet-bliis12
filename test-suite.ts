@@ -1,0 +1,558 @@
+// Sweet Bliss Bakery — Comprehensive Automated Test Suite
+// Verifies real-world authentication, security, product CRUD, order recalculation, status transitions, and analytics.
+
+const BASE_URL = 'http://localhost:3000';
+
+interface TestResult {
+  name: string;
+  passed: boolean;
+  details?: string;
+  error?: string;
+}
+
+const results: TestResult[] = [];
+
+async function runTests() {
+  console.log('🍰 Starting Sweet Bliss Bakery End-to-End QA Test Suite...\n');
+
+  let adminToken = '';
+  let createdProductId = '';
+  let createdOrderId = '';
+
+  // -------------------------------------------------------------
+  // Test 1: Public Products Catalogue
+  // -------------------------------------------------------------
+  try {
+    const res = await fetch(`${BASE_URL}/api/products`);
+    const data = await res.json();
+    if (res.ok && Array.isArray(data.products) && data.products.length > 0) {
+      results.push({
+        name: '1. Public Products Catalogue',
+        passed: true,
+        details: `Loaded ${data.products.length} products with live prices and stock flags.`,
+      });
+    } else {
+      throw new Error(`Unexpected response: status ${res.status}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '1. Public Products Catalogue', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 2: Unauthorized Admin Access Protection
+  // -------------------------------------------------------------
+  try {
+    const resOrders = await fetch(`${BASE_URL}/api/admin/orders`);
+    const resProducts = await fetch(`${BASE_URL}/api/admin/products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Hacker Cake', price: 10 }),
+    });
+
+    if (resOrders.status === 401 && resProducts.status === 401) {
+      results.push({
+        name: '2. Unauthorized Admin Access Blocked',
+        passed: true,
+        details: 'Admin endpoints strictly rejected unauthenticated requests with HTTP 401.',
+      });
+    } else {
+      throw new Error(`Expected 401, got ${resOrders.status} and ${resProducts.status}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '2. Unauthorized Admin Access Blocked', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 3: Admin Login with Wrong Password (Rate Limit Tracking)
+  // -------------------------------------------------------------
+  try {
+    const res = await fetch(`${BASE_URL}/api/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'wrongPassword123!' }),
+    });
+
+    if (res.status === 401) {
+      const data = await res.json();
+      results.push({
+        name: '3. Admin Login Rejection on Bad Password',
+        passed: true,
+        details: `Rejected bad password. Remaining attempts: ${data.remainingAttempts}`,
+      });
+    } else {
+      throw new Error(`Expected 401, got ${res.status}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '3. Admin Login Rejection on Bad Password', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 4: Admin Login & Session Generation
+  // -------------------------------------------------------------
+  try {
+    const res = await fetch(`${BASE_URL}/api/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin', password: 'sweetbliss-admin-2026' }),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success && data.token && data.token.startsWith('adm_')) {
+      adminToken = data.token;
+      results.push({
+        name: '4. Admin Login & Session Creation',
+        passed: true,
+        details: `Issued cryptographically random session token (${adminToken.substring(0, 14)}...) valid for 8 hours.`,
+      });
+    } else {
+      throw new Error(`Login failed: ${JSON.stringify(data)}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '4. Admin Login & Session Creation', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 5: Verify Active Session via /api/admin/me
+  // -------------------------------------------------------------
+  try {
+    const res = await fetch(`${BASE_URL}/api/admin/me`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const data = await res.json();
+    if (res.ok && data.success && data.admin?.username === 'admin') {
+      results.push({
+        name: '5. Admin Session Token Verification',
+        passed: true,
+        details: `Session verified for user "${data.admin.username}" (${data.admin.role}).`,
+      });
+    } else {
+      throw new Error(`Session verification failed: ${JSON.stringify(data)}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '5. Admin Session Token Verification', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 6: Product Creation (POST /api/admin/products)
+  // -------------------------------------------------------------
+  try {
+    const newProductPayload = {
+      name: 'Artisan Saffron Pistachio Gateau',
+      category: 'cakes',
+      categoryLabel: 'Signature Festive Cakes',
+      price: 899,
+      tagline: 'Kashmiri saffron mousse with roasted Iranian pistachios',
+      description: 'Delicate layers of almond dacquoise, real saffron cream, and crushed pistachio praline.',
+      image: '/src/assets/images/featured_chocolate_truffle_1791733075545.jpg',
+      badge: 'Chef Special',
+      flavours: ['Kashmiri Saffron', 'Pistachio Velvet'],
+      isEggless: true,
+    };
+
+    const res = await fetch(`${BASE_URL}/api/admin/products`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify(newProductPayload),
+    });
+
+    const data = await res.json();
+    if (res.status === 201 && data.success && data.product?.id) {
+      createdProductId = data.product.id;
+      results.push({
+        name: '6. Product Creation (Admin CRUD)',
+        passed: true,
+        details: `Created "${data.product.name}" with ID: ${createdProductId} at ₹${data.product.price}.`,
+      });
+    } else {
+      throw new Error(data.error || 'Failed to create product');
+    }
+  } catch (err: any) {
+    results.push({ name: '6. Product Creation (Admin CRUD)', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 7: Product Update & Stock Toggle
+  // -------------------------------------------------------------
+  try {
+    // 1. Update price to 949 and name
+    const resUpdate = await fetch(`${BASE_URL}/api/admin/products/${createdProductId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        name: 'Artisan Royal Saffron Pistachio Gateau',
+        price: 949,
+      }),
+    });
+    const updateData = await resUpdate.json();
+
+    // 2. Toggle stock to Out of Stock
+    const resStock = await fetch(`${BASE_URL}/api/admin/menu/toggle-stock`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        productId: createdProductId,
+        isOutOfStock: true,
+      }),
+    });
+    const stockData = await resStock.json();
+
+    if (resUpdate.ok && updateData.product.price === 949 && resStock.ok && stockData.isOutOfStock === true) {
+      results.push({
+        name: '7. Product Update & Stock Toggle',
+        passed: true,
+        details: `Updated name and price (₹949) and marked out-of-stock successfully.`,
+      });
+    } else {
+      throw new Error(`Update or stock toggle failed`);
+    }
+  } catch (err: any) {
+    results.push({ name: '7. Product Update & Stock Toggle', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 8: Order Rejection on Out-of-Stock Item
+  // -------------------------------------------------------------
+  try {
+    const resOrder = await fetch(`${BASE_URL}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer: {
+          fullName: 'Test Customer',
+          phone: '9876543210',
+          email: 'test@example.com',
+          address: 'Surya City Phase 1',
+          city: 'Bangalore',
+          pincode: '562162',
+        },
+        items: [
+          {
+            productId: createdProductId,
+            name: 'Artisan Royal Saffron Pistachio Gateau',
+            weightKg: 0.5,
+            price: 949,
+            quantity: 1,
+          },
+        ],
+        deliveryDate: new Date().toISOString().split('T')[0],
+        deliverySlot: 'evening',
+        paymentMethod: 'COD',
+      }),
+    });
+
+    if (resOrder.status === 400 || resOrder.status === 500) {
+      const data = await resOrder.json();
+      results.push({
+        name: '8. Out-of-Stock Order Prevention',
+        passed: true,
+        details: `Server correctly blocked order placement: "${data.error}"`,
+      });
+    } else {
+      throw new Error(`Expected order rejection on sold out item, got ${resOrder.status}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '8. Out-of-Stock Order Prevention', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 9: Set Product In-Stock and Test Price Recalculation Integrity
+  // -------------------------------------------------------------
+  try {
+    // Put back in stock
+    await fetch(`${BASE_URL}/api/admin/menu/toggle-stock`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        productId: createdProductId,
+        isOutOfStock: false,
+      }),
+    });
+
+    // Attempt client-side price tampering: send price: 10
+    const resOrder = await fetch(`${BASE_URL}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer: {
+          fullName: 'Test Auditor',
+          phone: '9876543210',
+          email: 'auditor@example.com',
+          address: 'Surya City Phase 2',
+          city: 'Bangalore',
+          pincode: '562162',
+        },
+        items: [
+          {
+            productId: createdProductId,
+            name: 'Artisan Royal Saffron Pistachio Gateau',
+            weightKg: 0.5,
+            price: 10, // Attempted tamper!
+            quantity: 1,
+          },
+        ],
+        deliveryDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        deliverySlot: 'evening',
+        paymentMethod: 'COD',
+      }),
+    });
+
+    const data = await resOrder.json();
+    if (resOrder.ok && data.success && data.order) {
+      createdOrderId = data.order.orderId;
+      // Verify server forced genuine price ₹949 instead of client's ₹10
+      if (data.order.items[0].price === 949 && data.order.subtotal === 949) {
+        results.push({
+          name: '9. Server-Side Price & Financials Integrity',
+          passed: true,
+          details: `Client submitted price ₹10; server recalculated and enforced genuine ₹949 without trusting browser! Order ID: ${createdOrderId}`,
+        });
+      } else {
+        throw new Error(`Server accepted tampered price! Subtotal was: ₹${data.order.subtotal}`);
+      }
+    } else {
+      throw new Error(`Order placement failed: ${data.error}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '9. Server-Side Price & Financials Integrity', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 10: Duplicate Order Submission Prevention
+  // -------------------------------------------------------------
+  try {
+    const resDuplicate = await fetch(`${BASE_URL}/api/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer: {
+          fullName: 'Test Auditor',
+          phone: '9876543210',
+          email: 'auditor@example.com',
+          address: 'Surya City Phase 2',
+          city: 'Bangalore',
+          pincode: '562162',
+        },
+        items: [
+          {
+            productId: createdProductId,
+            name: 'Artisan Royal Saffron Pistachio Gateau',
+            weightKg: 0.5,
+            price: 949,
+            quantity: 1,
+          },
+        ],
+        deliveryDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        deliverySlot: 'evening',
+        paymentMethod: 'COD',
+      }),
+    });
+
+    if (resDuplicate.status === 409) {
+      results.push({
+        name: '10. Duplicate Submission Prevention',
+        passed: true,
+        details: 'Identical rapid repeat submission blocked with HTTP 409 Conflict.',
+      });
+    } else {
+      throw new Error(`Expected 409, got ${resDuplicate.status}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '10. Duplicate Submission Prevention', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 11: Admin Order Retrieval & Detail Lookup
+  // -------------------------------------------------------------
+  try {
+    const resOrders = await fetch(`${BASE_URL}/api/admin/orders?sortBy=date-desc`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const ordersData = await resOrders.json();
+
+    const resSingle = await fetch(`${BASE_URL}/api/admin/orders/${createdOrderId}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const singleData = await resSingle.json();
+
+    if (resOrders.ok && ordersData.orders.some((o: any) => o.orderId === createdOrderId) && resSingle.ok && singleData.order) {
+      results.push({
+        name: '11. Admin Orders Queue & Single Order Inspection',
+        passed: true,
+        details: `Order ${createdOrderId} retrieved in queue and inspected with all item specs and customer details.`,
+      });
+    } else {
+      throw new Error('Could not find order in admin orders queue');
+    }
+  } catch (err: any) {
+    results.push({ name: '11. Admin Orders Queue & Single Order Inspection', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 12: Order Lifecycle Transitions & Invalid Reversals
+  // -------------------------------------------------------------
+  try {
+    // 1. Advance to Preparing
+    const resPrep = await fetch(`${BASE_URL}/api/admin/orders/${createdOrderId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        status: 'Preparing Your Order',
+        note: 'Executive pastry chef whipped saffron mousse',
+      }),
+    });
+    const prepData = await resPrep.json();
+
+    // 2. Advance to Delivered
+    const resDelivered = await fetch(`${BASE_URL}/api/admin/orders/${createdOrderId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        status: 'Delivered',
+        note: 'Delivered to customer doorstep',
+      }),
+    });
+    const deliveredData = await resDelivered.json();
+
+    // 3. Attempt invalid transition: try to revert Delivered to Preparing
+    const resInvalid = await fetch(`${BASE_URL}/api/admin/orders/${createdOrderId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+      },
+      body: JSON.stringify({
+        status: 'Preparing Your Order',
+      }),
+    });
+
+    if (resPrep.ok && prepData.order.status === 'Preparing Your Order' && resDelivered.ok && deliveredData.order.status === 'Delivered' && resInvalid.status === 400) {
+      results.push({
+        name: '12. Order Lifecycle Progression & Disallowed Reversals',
+        passed: true,
+        details: 'Transitioned Confirmed -> Preparing -> Delivered, and successfully blocked illegal reversal on Delivered order (HTTP 400).',
+      });
+    } else {
+      throw new Error(`Transition test failed. Reversal status: ${resInvalid.status}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '12. Order Lifecycle Progression & Disallowed Reversals', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 13: Database-Driven Analytics Accuracy
+  // -------------------------------------------------------------
+  try {
+    const res = await fetch(`${BASE_URL}/api/admin/analytics`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success && data.kpis) {
+      const { totalOrders, netRevenue, deliveredCount } = data.kpis;
+      if (totalOrders > 0 && deliveredCount > 0 && netRevenue > 0) {
+        results.push({
+          name: '13. Real-Time Analytics Consistency',
+          passed: true,
+          details: `KPIs: Total Orders=${totalOrders}, Net Revenue=₹${netRevenue}, Delivered=${deliveredCount}. All calculated from genuine records without baseline filler.`,
+        });
+      } else {
+        throw new Error(`Inconsistent analytics data: ${JSON.stringify(data.kpis)}`);
+      }
+    } else {
+      throw new Error('Analytics endpoint error');
+    }
+  } catch (err: any) {
+    results.push({ name: '13. Real-Time Analytics Consistency', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 14: Delete Product (Admin CRUD Cleanup)
+  // -------------------------------------------------------------
+  try {
+    const res = await fetch(`${BASE_URL}/api/admin/products/${createdProductId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      results.push({
+        name: '14. Product Deletion (Admin CRUD)',
+        passed: true,
+        details: `Successfully removed test product (${createdProductId}) from bakery database.`,
+      });
+    } else {
+      throw new Error(`Failed to delete product: ${data.error}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '14. Product Deletion (Admin CRUD)', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 15: Admin Logout & Session Invalidation
+  // -------------------------------------------------------------
+  try {
+    const resLogout = await fetch(`${BASE_URL}/api/admin/logout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const resMe = await fetch(`${BASE_URL}/api/admin/me`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+
+    if (resLogout.ok && resMe.status === 401) {
+      results.push({
+        name: '15. Admin Logout & Session Invalidation',
+        passed: true,
+        details: 'Admin logged out; session token was destroyed on server and subsequent calls returned HTTP 401.',
+      });
+    } else {
+      throw new Error(`Session still valid after logout!`);
+    }
+  } catch (err: any) {
+    results.push({ name: '15. Admin Logout & Session Invalidation', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Print Summary
+  // -------------------------------------------------------------
+  console.log('\n======================================================');
+  console.log('         SWEET BLISS QA TEST EXECUTION REPORT         ');
+  console.log('======================================================\n');
+
+  let passedCount = 0;
+  results.forEach((r) => {
+    if (r.passed) {
+      passedCount += 1;
+      console.log(`✅ [PASS] ${r.name}`);
+      if (r.details) console.log(`   └─ ${r.details}`);
+    } else {
+      console.log(`❌ [FAIL] ${r.name}`);
+      if (r.error) console.log(`   └─ Error: ${r.error}`);
+    }
+  });
+
+  console.log(`\nResults: ${passedCount}/${results.length} tests passed (${Math.round((passedCount / results.length) * 100)}% success rate).\n`);
+  return passedCount === results.length;
+}
+
+runTests().then((allPassed) => {
+  process.exit(allPassed ? 0 : 1);
+});

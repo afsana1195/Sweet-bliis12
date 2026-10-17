@@ -80,3 +80,30 @@ export interface PlacedOrder {
   transactionId?: string;
   statusHistory?: Array<{ status: string; timestamp: string; note?: string }>;
 }
+
+export type IngredientCategory =
+  | 'Flour & Grains'
+  | 'Dairy & Fats'
+  | 'Sugars & Sweeteners'
+  | 'Chocolate & Cocoa'
+  | 'Flavourings & Extracts'
+  | 'Leavening & Additives'
+  | 'Packaging & Kitchen';
+
+export type IngredientUnit = 'kg' | 'liters' | 'grams' | 'ml' | 'packets';
+
+export interface BakingIngredient {
+  id: string;
+  name: string;
+  category: IngredientCategory;
+  currentStock: number;
+  unit: IngredientUnit;
+  minimumThreshold: number; // Low stock alert below this
+  idealStock: number; // Par level
+  costPerUnit: number; // Cost in INR
+  supplier: string;
+  lastRestocked: string;
+  expiryDate?: string;
+  storageLocation: string; // e.g. "Dry Storage Bin A", "Cold Room / Walk-in 4°C"
+  notes?: string;
+}
