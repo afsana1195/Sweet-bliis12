@@ -25,7 +25,10 @@ import {
   Copy,
   Zap,
   RotateCcw,
-  ShoppingBag
+  ShoppingBag,
+  FileText,
+  Receipt,
+  Calendar
 } from 'lucide-react';
 import { PlacedOrder, CustomerUser } from '../types.ts';
 
@@ -193,6 +196,7 @@ export const AccountModal: React.FC<AccountModalProps> = ({
   const [activeTab, setActiveTab] = useState<'profile' | 'loyalty' | 'orders' | 'rewards'>('profile');
   const [copiedPromo, setCopiedPromo] = useState(false);
   const [reorderingId, setReorderingId] = useState<string | null>(null);
+  const [orderDetailsModalOrder, setOrderDetailsModalOrder] = useState<PlacedOrder | null>(null);
 
   const handleReorderClick = (order: PlacedOrder) => {
     setReorderingId(order.orderId);
@@ -501,13 +505,13 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                 )}
               </button>
               <button
-                onClick={() => {
-                  onSelectOrder(trackingOrder);
-                  onClose();
-                }}
-                className="py-2.5 px-4 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors text-center"
+                type="button"
+                onClick={() => setOrderDetailsModalOrder(trackingOrder)}
+                className="py-2.5 px-3.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-semibold cursor-pointer shadow-2xs transition-colors flex items-center justify-center gap-1.5"
+                title="View full receipt and delivery breakdown"
               >
-                Receipt
+                <FileText className="w-3.5 h-3.5 text-[#881337]" />
+                <span>Order Details</span>
               </button>
             </div>
           </div>
@@ -1037,42 +1041,47 @@ export const AccountModal: React.FC<AccountModalProps> = ({
                       <strong className="text-stone-900 tabular-nums">Total: ₹{ord.total}</strong>
                     </div>
 
-                    <div className="flex items-center gap-2 pt-1">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
                       <button
-                        onClick={() => handleReorderClick(ord)}
-                        className="py-1.5 px-3 rounded-lg bg-[#881337] hover:bg-[#9F1239] text-white text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 shrink-0"
-                        title="Add items from this previous order back into your shopping cart"
+                        type="button"
+                        onClick={() => setOrderDetailsModalOrder(ord)}
+                        className="flex-1 py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-[#881337] font-bold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-rose-200 shadow-2xs"
+                        title="View itemized receipt, delivery address, and full breakdown"
                       >
-                        {reorderingId === ord.orderId ? (
-                          <>
-                            <Check className="w-3 h-3 text-emerald-300" />
-                            <span>Added!</span>
-                          </>
-                        ) : (
-                          <>
-                            <RotateCcw className="w-3 h-3" />
-                            <span>Reorder</span>
-                          </>
-                        )}
+                        <FileText className="w-3.5 h-3.5 text-[#881337]" />
+                        <span>View Order Details</span>
                       </button>
-                      <button
-                        onClick={() => setSelectedTrackOrderId(ord.orderId)}
-                        className="flex-1 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-[#881337] text-[11px] font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                      >
-                        <Clock className="w-3 h-3" />
-                        <span>Track Live</span>
-                      </button>
-                      <button
-                        onClick={() => {
-                          onSelectOrder(ord);
-                          onClose();
-                        }}
-                        className="py-1.5 px-2.5 rounded-lg border border-stone-200 hover:bg-stone-50 text-stone-600 text-[11px] font-semibold flex items-center gap-0.5 cursor-pointer"
-                        title="View Receipt"
-                      >
-                        <span>Receipt</span>
-                        <ChevronRight className="w-3 h-3" />
-                      </button>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleReorderClick(ord)}
+                          className="py-2 px-3.5 rounded-xl bg-[#881337] hover:bg-[#9F1239] text-white font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-95"
+                          title="Reorder this past transaction into shopping cart"
+                        >
+                          {reorderingId === ord.orderId ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-300" />
+                              <span>Added!</span>
+                            </>
+                          ) : (
+                            <>
+                              <RotateCcw className="w-3 h-3" />
+                              <span>Reorder</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTrackOrderId(ord.orderId)}
+                          className="py-2 px-2.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-600 text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                          title="Live Kitchen Tracking"
+                        >
+                          <Clock className="w-3.5 h-3.5 text-stone-400" />
+                          <span>Track</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1107,6 +1116,220 @@ export const AccountModal: React.FC<AccountModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* ================= ORDER DETAILS & RECEIPT MODAL ================= */}
+      {orderDetailsModalOrder && (
+        <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div className="relative bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-rose-100 max-h-[90vh] overflow-y-auto space-y-4 animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-rose-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-rose-100 to-pink-100 text-[#881337] flex items-center justify-center font-bold shadow-xs">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-serif text-lg font-bold text-[#881337]">
+                      Order Details
+                    </h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      {orderDetailsModalOrder.status || 'Order Confirmed'}
+                    </span>
+                  </div>
+                  <p className="text-xs font-mono text-stone-500">
+                    ID: #{orderDetailsModalOrder.orderId} • {new Date(orderDetailsModalOrder.createdAt || Date.now()).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setOrderDetailsModalOrder(null)}
+                className="w-8 h-8 rounded-full hover:bg-stone-100 text-stone-500 flex items-center justify-center cursor-pointer transition-colors"
+                aria-label="Close order details"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Delivery Timing Slot */}
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-100 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#881337]" />
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-stone-500 block">Scheduled Delivery</span>
+                  <span className="font-bold text-stone-900">
+                    {orderDetailsModalOrder.deliveryDate} ({orderDetailsModalOrder.deliverySlot})
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTrackOrderId(orderDetailsModalOrder.orderId);
+                  setOrderDetailsModalOrder(null);
+                }}
+                className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-rose-50 border border-rose-200 text-[#881337] font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+              >
+                <Clock className="w-3 h-3" />
+                <span>Live Track</span>
+              </button>
+            </div>
+
+            {/* Delivery Address Card */}
+            <div className="bg-stone-50/80 rounded-2xl p-4 border border-stone-200/80 space-y-2 text-xs">
+              <div className="flex items-center gap-2 text-stone-900 font-bold">
+                <MapPin className="w-4 h-4 text-[#881337]" />
+                <span>Delivery Address</span>
+              </div>
+              <div className="space-y-1 text-stone-700 pl-6">
+                <p className="font-semibold text-stone-900">
+                  {orderDetailsModalOrder.customer?.fullName || 'Valued Customer'}
+                </p>
+                <p className="text-stone-600 leading-relaxed">
+                  {orderDetailsModalOrder.customer?.address || 'Delivery Address Provided'}, {orderDetailsModalOrder.customer?.city || 'Bangalore'} - {orderDetailsModalOrder.customer?.pincode || '562162'}
+                </p>
+                {orderDetailsModalOrder.customer?.landmark && (
+                  <p className="text-[11px] text-stone-500">
+                    <strong className="text-stone-700">Landmark:</strong> {orderDetailsModalOrder.customer.landmark}
+                  </p>
+                )}
+                <p className="text-[11px] text-stone-600 flex items-center gap-1.5 pt-0.5">
+                  <Phone className="w-3 h-3 text-[#881337]" />
+                  <span>+91 {orderDetailsModalOrder.customer?.phone}</span>
+                  {orderDetailsModalOrder.customer?.email && (
+                    <span className="text-stone-400">• {orderDetailsModalOrder.customer.email}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Itemized Receipt Table / List */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-stone-800">
+                <span className="flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4 text-[#881337]" />
+                  <span>Itemized Receipt ({orderDetailsModalOrder.items.length} {orderDetailsModalOrder.items.length === 1 ? 'item' : 'items'})</span>
+                </span>
+                <span className="text-[10px] text-stone-500 font-normal">Amount in INR (₹)</span>
+              </div>
+
+              <div className="divide-y divide-rose-100 rounded-2xl border border-rose-100 bg-white overflow-hidden text-xs">
+                {orderDetailsModalOrder.items.map((item, idx) => (
+                  <div key={idx} className="p-3.5 space-y-1.5 hover:bg-rose-50/20 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-stone-900 text-xs sm:text-sm">
+                            {item.name}
+                          </span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${item.isEggless ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {item.isEggless ? '100% Eggless' : 'With Egg'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-500">
+                          Size: {item.weightKg} kg • Flavour: {item.flavour || 'Artisan Special'} • Qty: {item.quantity}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="font-bold text-stone-900 tabular-nums text-xs sm:text-sm">
+                          ₹{item.price * item.quantity}
+                        </span>
+                        <span className="text-[10px] text-stone-400 block">
+                          ₹{item.price} each
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Custom Message on Cake */}
+                    {item.cakeMessage && item.cakeMessage.trim() && (
+                      <div className="p-2 rounded-xl bg-pink-50/70 border border-pink-100 text-[11px] text-rose-900 flex items-start gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                        <span>
+                          <strong>Piping Message:</strong> "{item.cakeMessage.trim()}"
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Financial Calculation Summary */}
+            <div className="bg-[#FFF9F9] rounded-2xl p-4 border border-rose-100 space-y-2 text-xs">
+              <div className="flex items-center justify-between text-stone-600">
+                <span>Subtotal ({orderDetailsModalOrder.items.reduce((sum, i) => sum + i.quantity, 0)} items)</span>
+                <span className="tabular-nums font-semibold">
+                  ₹{orderDetailsModalOrder.subtotal || orderDetailsModalOrder.items.reduce((sum, i) => sum + i.price * i.quantity, 0)}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-stone-600">
+                <span>Delivery Charges</span>
+                <span className="tabular-nums font-semibold text-emerald-700">
+                  {orderDetailsModalOrder.deliveryFee === 0 || !orderDetailsModalOrder.deliveryFee ? 'FREE' : `₹${orderDetailsModalOrder.deliveryFee}`}
+                </span>
+              </div>
+
+              {orderDetailsModalOrder.discount && orderDetailsModalOrder.discount > 0 ? (
+                <div className="flex items-center justify-between text-emerald-700 font-semibold">
+                  <span>Discount / Loyalty Benefit</span>
+                  <span className="tabular-nums">-₹{orderDetailsModalOrder.discount}</span>
+                </div>
+              ) : null}
+
+              <div className="pt-2 border-t border-rose-200/80 flex items-center justify-between text-sm sm:text-base font-extrabold text-[#881337]">
+                <span>Total Amount Paid</span>
+                <span className="font-serif tabular-nums text-lg text-[#881337]">
+                  ₹{orderDetailsModalOrder.total}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-rose-100 text-[11px] text-stone-500">
+                <span>Payment Method: <strong className="text-stone-700">{orderDetailsModalOrder.paymentMethod || 'Online'}</strong></span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold">
+                  {orderDetailsModalOrder.paymentStatus || 'PAID'}
+                </span>
+              </div>
+              {orderDetailsModalOrder.transactionId && (
+                <div className="text-[10px] text-stone-400 font-mono">
+                  Txn Ref: {orderDetailsModalOrder.transactionId}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Actions: Re-Order & Close */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-rose-100">
+              <button
+                type="button"
+                onClick={() => handleReorderClick(orderDetailsModalOrder)}
+                className="flex-1 py-3 px-4 rounded-xl bg-[#881337] hover:bg-[#9F1239] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-98 transition-all"
+                title="Add all items from this order back to your shopping cart"
+              >
+                {reorderingId === orderDetailsModalOrder.orderId ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-300" />
+                    <span>Added to Shopping Cart! 🍰</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Re-order This Past Transaction</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOrderDetailsModalOrder(null)}
+                className="py-3 px-5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs sm:text-sm font-semibold cursor-pointer text-center transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

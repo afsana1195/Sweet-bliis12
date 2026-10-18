@@ -370,7 +370,28 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate, onMe
             </button>
           </form>
 
-          <div className="text-center pt-2">
+          {/* Default Credentials Helper */}
+          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1.5">
+            <div className="flex items-center justify-between font-semibold">
+              <span>🔑 Default Admin Password</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUsernameInput('ansariwazid1995@gmail.com');
+                  setPasswordInput('sweetbliss-admin-2026');
+                  setKeyInput('sweetbliss-admin-2026');
+                }}
+                className="text-[11px] text-[#881337] underline font-bold cursor-pointer hover:text-[#9F1239]"
+              >
+                Auto-fill Demo Credentials
+              </button>
+            </div>
+            <p className="text-[11px] font-mono bg-white/80 px-2 py-1 rounded border border-amber-200 select-all">
+              sweetbliss-admin-2026
+            </p>
+          </div>
+
+          <div className="text-center pt-1">
             <button
               onClick={() => onNavigate('home')}
               className="text-xs text-stone-500 hover:text-stone-800 cursor-pointer"
