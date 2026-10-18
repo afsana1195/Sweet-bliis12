@@ -245,7 +245,6 @@ export const AccountModal: React.FC<AccountModalProps> = ({
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          'x-user-id': currentUser.id,
         },
         body: JSON.stringify({
           phone: editPhone,

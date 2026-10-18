@@ -1,5 +1,61 @@
 [
   {
+    "orderId": "SB-2026-9007",
+    "customer": {
+      "fullName": "Test Auditor",
+      "phone": "9876543210",
+      "email": "auditor@example.com",
+      "address": "Surya City Phase 2",
+      "city": "Bangalore",
+      "pincode": "562162"
+    },
+    "items": [
+      {
+        "productId": "cake-artisan-saffron-pistachio-gateau-mve3zwcn",
+        "name": "Artisan Royal Saffron Pistachio Gateau",
+        "weightKg": 0.5,
+        "price": 949,
+        "quantity": 1,
+        "isEggless": true,
+        "cakeMessage": "",
+        "flavour": "Kashmiri Saffron"
+      }
+    ],
+    "deliveryDate": "2026-10-19",
+    "deliverySlot": "evening",
+    "paymentMethod": "COD",
+    "paymentStatus": "PENDING",
+    "subtotal": 949,
+    "deliveryFee": 0,
+    "discount": 0,
+    "total": 949,
+    "orderNotes": "",
+    "createdAt": "2026-10-18T17:38:22.775Z",
+    "status": "Delivered",
+    "statusHistory": [
+      {
+        "status": "Order Placed",
+        "timestamp": "2026-10-18T17:38:22.775Z",
+        "note": "Cash on Delivery order booked"
+      },
+      {
+        "status": "Order Confirmed",
+        "timestamp": "2026-10-18T17:38:22.775Z",
+        "note": "Confirmed for doorstep cash/UPI payment"
+      },
+      {
+        "status": "Preparing Your Order",
+        "timestamp": "2026-10-18T17:38:22.789Z",
+        "note": "Executive pastry chef whipped saffron mousse"
+      },
+      {
+        "status": "Delivered",
+        "timestamp": "2026-10-18T17:38:22.793Z",
+        "note": "Delivered to customer doorstep"
+      }
+    ]
+  },
+  {
     "orderId": "SB-2026-7568",
     "customer": {
       "fullName": "Test Auditor",

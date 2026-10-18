@@ -421,7 +421,7 @@ export const Footer: React.FC<FooterProps> = ({
           {/* Store Location & Timings */}
           <div className="space-y-3 text-xs sm:text-sm text-stone-300">
             <h4 className="font-serif text-sm font-bold text-white uppercase tracking-wider">
-              Store Info
+              Store Info & Compliance
             </h4>
             <div className="flex items-start gap-2.5">
               <MapPin className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
@@ -433,11 +433,21 @@ export const Footer: React.FC<FooterProps> = ({
             </div>
             <div className="flex items-center gap-2.5">
               <Phone className="w-4 h-4 text-rose-400 shrink-0" />
-              <span>{BUSINESS_CONFIG.phone}</span>
+              <span>+91 {BUSINESS_CONFIG.phone}</span>
             </div>
             <div className="flex items-center gap-2.5">
               <Mail className="w-4 h-4 text-rose-400 shrink-0" />
               <span>{BUSINESS_CONFIG.email}</span>
+            </div>
+            <div className="pt-2 border-t border-stone-800 text-[11px] text-stone-400 space-y-1">
+              <div className="flex items-center gap-1.5 text-stone-300">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="font-semibold">FSSAI Status:</span>
+                <span className="text-amber-300/90">{BUSINESS_CONFIG.fssaiLicence}</span>
+              </div>
+              <p className="text-[10px] text-stone-400">
+                GSTIN: <span className="text-stone-300">{BUSINESS_CONFIG.gstin}</span>
+              </p>
             </div>
           </div>
         </div>

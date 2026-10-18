@@ -111,13 +111,10 @@ export default function App() {
   // Load and refresh user session from server if token exists
   useEffect(() => {
     const token = localStorage.getItem('sb_auth_token');
-    const savedUser = localStorage.getItem('sb_user');
-    if (token || savedUser) {
-      const parsed = savedUser ? JSON.parse(savedUser) : null;
+    if (token) {
       fetch('/api/auth/me', {
         headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          ...(parsed?.id ? { 'x-user-id': parsed.id } : {}),
+          Authorization: `Bearer ${token}`,
         },
       })
         .then((res) => (res.ok ? res.json() : null))
@@ -125,6 +122,11 @@ export default function App() {
           if (data?.user) {
             setCurrentUser(data.user);
             localStorage.setItem('sb_user', JSON.stringify(data.user));
+          } else {
+            // Invalid or expired token
+            localStorage.removeItem('sb_auth_token');
+            localStorage.removeItem('sb_user');
+            setCurrentUser(null);
           }
         })
         .catch(() => {});
@@ -133,12 +135,11 @@ export default function App() {
 
   // Fetch past orders for logged-in user
   useEffect(() => {
-    if (currentUser?.id) {
-      const token = localStorage.getItem('sb_auth_token');
+    const token = localStorage.getItem('sb_auth_token');
+    if (currentUser?.id && token) {
       fetch('/api/auth/orders', {
         headers: {
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          'x-user-id': currentUser.id,
+          Authorization: `Bearer ${token}`,
         },
       })
         .then((res) => (res.ok ? res.json() : null))

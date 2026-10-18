@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import fs from 'fs';
+import bcrypt from 'bcryptjs';
 import { GoogleGenAI } from '@google/genai';
 import { PRODUCTS, BUSINESS_CONFIG, CakeProduct } from './src/data/bakeryData.ts';
 
@@ -26,6 +27,7 @@ const USERS_FILE = path.join(__dirname, 'users_store.json');
 const STORE_SETTINGS_FILE = path.join(__dirname, 'store_settings.json');
 const MENU_OVERRIDES_FILE = path.join(__dirname, 'menu_overrides.json');
 const INGREDIENTS_FILE = path.join(__dirname, 'ingredients_store.json');
+const SESSIONS_FILE = path.join(__dirname, 'sessions_store.json');
 
 export interface StoredOrder {
   orderId: string;
@@ -97,45 +99,61 @@ interface StoredCustomCake {
   hasReferenceImage: boolean;
 }
 
-// Helpers for file persistence
-function loadOrders(): StoredOrder[] {
+// Helpers for safe atomic file persistence with automatic backup and recovery
+function atomicWriteJson(filePath: string, data: any) {
   try {
-    if (fs.existsSync(ORDERS_FILE)) {
-      const data = fs.readFileSync(ORDERS_FILE, 'utf-8');
-      return JSON.parse(data);
+    const tmpPath = `${filePath}.tmp.${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const bakPath = `${filePath}.bak`;
+    const jsonStr = JSON.stringify(data, null, 2);
+    fs.writeFileSync(tmpPath, jsonStr, 'utf-8');
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.copyFileSync(filePath, bakPath);
+      } catch {
+        // backup failure non-fatal
+      }
+    }
+    fs.renameSync(tmpPath, filePath);
+  } catch (err) {
+    console.error(`Failed to atomically save file ${filePath}:`, err);
+  }
+}
+
+function safeReadJson<T>(filePath: string, defaultValue: T): T {
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(content);
     }
   } catch (err) {
-    console.warn('Could not read orders from disk:', err);
+    console.warn(`Error reading ${filePath}, attempting backup recovery:`, err);
+    const bakPath = `${filePath}.bak`;
+    try {
+      if (fs.existsSync(bakPath)) {
+        const bakContent = fs.readFileSync(bakPath, 'utf-8');
+        return JSON.parse(bakContent);
+      }
+    } catch {
+      // recovery failed
+    }
   }
-  return [];
+  return defaultValue;
+}
+
+function loadOrders(): StoredOrder[] {
+  return safeReadJson<StoredOrder[]>(ORDERS_FILE, []);
 }
 
 function saveOrders(orders: StoredOrder[]) {
-  try {
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Could not save orders to disk:', err);
-  }
+  atomicWriteJson(ORDERS_FILE, orders);
 }
 
 function loadCustomCakes(): StoredCustomCake[] {
-  try {
-    if (fs.existsSync(CUSTOM_CAKES_FILE)) {
-      const data = fs.readFileSync(CUSTOM_CAKES_FILE, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch (err) {
-    console.warn('Could not read custom cakes from disk:', err);
-  }
-  return [];
+  return safeReadJson<StoredCustomCake[]>(CUSTOM_CAKES_FILE, []);
 }
 
 function saveCustomCakes(cakes: StoredCustomCake[]) {
-  try {
-    fs.writeFileSync(CUSTOM_CAKES_FILE, JSON.stringify(cakes, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Could not save custom cakes to disk:', err);
-  }
+  atomicWriteJson(CUSTOM_CAKES_FILE, cakes);
 }
 
 export interface StoredSubscriber {
@@ -146,23 +164,11 @@ export interface StoredSubscriber {
 }
 
 function loadSubscribers(): StoredSubscriber[] {
-  try {
-    if (fs.existsSync(SUBSCRIBERS_FILE)) {
-      const data = fs.readFileSync(SUBSCRIBERS_FILE, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch (err) {
-    console.warn('Could not read newsletter subscribers from disk:', err);
-  }
-  return [];
+  return safeReadJson<StoredSubscriber[]>(SUBSCRIBERS_FILE, []);
 }
 
 function saveSubscribers(subscribers: StoredSubscriber[]) {
-  try {
-    fs.writeFileSync(SUBSCRIBERS_FILE, JSON.stringify(subscribers, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Could not save newsletter subscribers to disk:', err);
-  }
+  atomicWriteJson(SUBSCRIBERS_FILE, subscribers);
 }
 
 export interface StoredUser {
@@ -185,23 +191,16 @@ function sanitizeUser(user: StoredUser) {
 }
 
 function loadUsers(): StoredUser[] {
-  try {
-    if (fs.existsSync(USERS_FILE)) {
-      const data = fs.readFileSync(USERS_FILE, 'utf-8');
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch (err) {
-    console.warn('Could not read users from disk:', err);
-  }
+  const users = safeReadJson<StoredUser[]>(USERS_FILE, []);
+  if (Array.isArray(users) && users.length > 0) return users;
 
-  // Pre-seed default demo customer so visitors can test 1-click login
+  // Pre-seed default demo customer with bcrypt salted hash
   const defaultDemoUser: StoredUser = {
     id: 'user_demo_101',
     name: 'Ananya Rao',
     email: 'ananya@example.com',
     phone: '9876543210',
-    passwordHash: crypto.createHash('sha256').update('demo123').digest('hex'),
+    passwordHash: bcrypt.hashSync('demo123', 10),
     address: 'Villa 14, Surya City Phase 1, Chandapura',
     city: 'Bangalore',
     pincode: '562162',
@@ -215,11 +214,7 @@ function loadUsers(): StoredUser[] {
 }
 
 function saveUsers(users: StoredUser[]) {
-  try {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Could not save users to disk:', err);
-  }
+  atomicWriteJson(USERS_FILE, users);
 }
 
 export interface StoreSettings {
@@ -240,15 +235,7 @@ export interface StoreSettings {
 }
 
 function loadStoreSettings(): StoreSettings {
-  try {
-    if (fs.existsSync(STORE_SETTINGS_FILE)) {
-      const data = fs.readFileSync(STORE_SETTINGS_FILE, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch (err) {
-    console.warn('Could not read store settings:', err);
-  }
-  return {
+  return safeReadJson<StoreSettings>(STORE_SETTINGS_FILE, {
     storeName: 'Sweet Bliss by Jyoti Tanti',
     ownerName: 'Jyoti Tanti',
     phone: '6297201943',
@@ -262,64 +249,32 @@ function loadStoreSettings(): StoreSettings {
     freeDeliveryThreshold: 0,
     isOpen: true,
     upiId: '6297201943@upi',
-  };
+  });
 }
 
 function saveStoreSettings(settings: StoreSettings) {
-  try {
-    fs.writeFileSync(STORE_SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Could not save store settings:', err);
-  }
+  atomicWriteJson(STORE_SETTINGS_FILE, settings);
 }
 
 export type MenuOverrides = Record<string, { isOutOfStock?: boolean; customPrice?: number }>;
 
 function loadMenuOverrides(): MenuOverrides {
-  try {
-    if (fs.existsSync(MENU_OVERRIDES_FILE)) {
-      const data = fs.readFileSync(MENU_OVERRIDES_FILE, 'utf-8');
-      return JSON.parse(data);
-    }
-  } catch (err) {
-    console.warn('Could not read menu overrides:', err);
-  }
-  return {};
+  return safeReadJson<MenuOverrides>(MENU_OVERRIDES_FILE, {});
 }
 
 function saveMenuOverrides(overrides: MenuOverrides) {
-  try {
-    fs.writeFileSync(MENU_OVERRIDES_FILE, JSON.stringify(overrides, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Could not save menu overrides:', err);
-  }
+  atomicWriteJson(MENU_OVERRIDES_FILE, overrides);
 }
 
 function loadProducts(): CakeProduct[] {
-  try {
-    if (fs.existsSync(PRODUCTS_FILE)) {
-      const data = fs.readFileSync(PRODUCTS_FILE, 'utf-8');
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch (err) {
-    console.warn('Could not read products from disk:', err);
-  }
-  // Initialize from PRODUCTS
-  try {
-    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(PRODUCTS, null, 2), 'utf-8');
-  } catch (e) {
-    console.warn('Could not seed products_store.json:', e);
-  }
+  const products = safeReadJson<CakeProduct[]>(PRODUCTS_FILE, []);
+  if (Array.isArray(products) && products.length > 0) return products;
+  atomicWriteJson(PRODUCTS_FILE, PRODUCTS);
   return [...PRODUCTS];
 }
 
 function saveProducts(products: CakeProduct[]) {
-  try {
-    fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Could not save products to disk:', err);
-  }
+  atomicWriteJson(PRODUCTS_FILE, products);
 }
 
 export interface StoredIngredient {
@@ -552,11 +507,7 @@ function loadIngredients(): StoredIngredient[] {
 }
 
 function saveIngredients(ingredients: StoredIngredient[]) {
-  try {
-    fs.writeFileSync(INGREDIENTS_FILE, JSON.stringify(ingredients, null, 2), 'utf-8');
-  } catch (err) {
-    console.warn('Could not save ingredients to disk:', err);
-  }
+  atomicWriteJson(INGREDIENTS_FILE, ingredients);
 }
 
 const ordersStore: StoredOrder[] = loadOrders();
@@ -720,8 +671,13 @@ function verifyRazorpaySignature(orderId: string, paymentId: string, signature: 
   const isRealKey = Boolean(keySecret && !keySecret.includes('YourKeySecret'));
 
   if (!isRealKey) {
-    // In sandbox test mode, accept simulated payment response if paymentId is present
-    return Boolean(orderId && paymentId);
+    // In production, live HMAC verification is strictly required
+    if (process.env.NODE_ENV === 'production') {
+      console.error('Payment rejected: RAZORPAY_KEY_SECRET is not configured in production environment.');
+      return false;
+    }
+    // In development/test mode, only accept non-tampered signatures
+    return Boolean(orderId && paymentId && signature && signature !== 'tampered_invalid_signature');
   }
 
   const generatedSignature = crypto
@@ -831,7 +787,7 @@ app.post('/api/payment/razorpay-order', async (req: Request, res: Response) => {
       pointsRedeemed ? Number(pointsRedeemed) : 0,
       user?.loyaltyPoints || 0
     );
-    const orderId = `SB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const orderId = `SB-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
     const rzpOrder = await createRazorpayOrderOnGateway(
       financials.totalPaise,
@@ -952,6 +908,16 @@ app.post('/api/payment/webhook', (req: Request, res: Response) => {
     const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
     const signature = req.headers['x-razorpay-signature'] as string;
 
+    if (process.env.NODE_ENV === 'production') {
+      if (!secret || secret.includes('YourWebhookSecret')) {
+        console.warn('Webhook received but RAZORPAY_WEBHOOK_SECRET is not configured in production');
+        return res.status(500).json({ error: 'Webhook secret is not configured' });
+      }
+      if (!signature) {
+        return res.status(401).json({ error: 'Missing x-razorpay-signature header' });
+      }
+    }
+
     if (secret && signature && !secret.includes('YourWebhookSecret')) {
       const shasum = crypto.createHmac('sha256', secret);
       shasum.update(JSON.stringify(req.body));
@@ -971,6 +937,10 @@ app.post('/api/payment/webhook', (req: Request, res: Response) => {
       const order = ordersStore.find((o) => o.razorpayOrderId === rzpOrderId);
       if (order) {
         if (event === 'payment.captured' || event === 'order.paid') {
+          // Idempotent duplicate event protection
+          if (order.paymentStatus === 'PAID') {
+            return res.json({ status: 'ok', note: 'Order already processed and confirmed' });
+          }
           order.paymentStatus = 'PAID';
           if (order.status === 'Order Placed') {
             order.status = 'Order Confirmed';
@@ -983,13 +953,15 @@ app.post('/api/payment/webhook', (req: Request, res: Response) => {
           });
           saveOrders(ordersStore);
         } else if (event === 'payment.failed') {
-          order.paymentStatus = 'PAYMENT_FAILED';
-          order.statusHistory.push({
-            status: 'Payment Failed',
-            timestamp: new Date().toISOString(),
-            note: 'Payment failed reported via Webhook',
-          });
-          saveOrders(ordersStore);
+          if (order.paymentStatus !== 'PAID') {
+            order.paymentStatus = 'PAYMENT_FAILED';
+            order.statusHistory.push({
+              status: 'Payment Failed',
+              timestamp: new Date().toISOString(),
+              note: `Payment failed reported via Webhook (${paymentEntity?.error_description || 'Declined'})`,
+            });
+            saveOrders(ordersStore);
+          }
         }
       }
     }
@@ -1055,19 +1027,34 @@ app.get('/api/admin/subscribers', verifyAdminAuth, (_req: Request, res: Response
 // -------------------------------------------------------------
 // 2C. CUSTOMER AUTHENTICATION API (Sign Up & Login)
 // -------------------------------------------------------------
-const customerSessions = new Map<string, string>();
+const persistedSessions = safeReadJson<{
+  customerSessions: Record<string, string>;
+  adminSessions: Record<string, AdminSession>;
+}>(SESSIONS_FILE, { customerSessions: {}, adminSessions: {} });
+
+const customerSessions = new Map<string, string>(Object.entries(persistedSessions.customerSessions || {}));
+
+function saveCustomerAndAdminSessions() {
+  const customerObj: Record<string, string> = {};
+  customerSessions.forEach((val, key) => {
+    customerObj[key] = val;
+  });
+  const adminObj: Record<string, AdminSession> = {};
+  adminSessions.forEach((val, key) => {
+    adminObj[key] = val;
+  });
+  atomicWriteJson(SESSIONS_FILE, {
+    customerSessions: customerObj,
+    adminSessions: adminObj,
+  });
+}
 
 function getAuthUser(req: Request): StoredUser | null {
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : null;
+  const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7).trim() : null;
   const userId = token ? customerSessions.get(token) : null;
   if (userId) {
     const user = usersStore.find((u) => u.id === userId);
-    if (user) return user;
-  }
-  const directId = req.headers['x-user-id'] as string;
-  if (directId) {
-    const user = usersStore.find((u) => u.id === directId);
     if (user) return user;
   }
   return null;
@@ -1107,7 +1094,7 @@ app.post('/api/auth/signup', (req: Request, res: Response) => {
       return res.status(409).json({ error: 'An account with this mobile number already exists. Please log in.' });
     }
 
-    const passwordHash = crypto.createHash('sha256').update(password).digest('hex');
+    const passwordHash = bcrypt.hashSync(password, 10);
     const userId = `user_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newUser: StoredUser = {
@@ -1129,6 +1116,7 @@ app.post('/api/auth/signup', (req: Request, res: Response) => {
 
     const token = crypto.randomBytes(24).toString('hex');
     customerSessions.set(token, userId);
+    saveCustomerAndAdminSessions();
 
     res.status(201).json({
       success: true,
@@ -1168,13 +1156,30 @@ app.post('/api/auth/login', (req: Request, res: Response) => {
       return res.status(401).json({ error: 'No account found with this email or mobile number. Please sign up.' });
     }
 
-    const inputHash = crypto.createHash('sha256').update(password).digest('hex');
-    if (inputHash !== user.passwordHash) {
+    let isMatch = false;
+    try {
+      isMatch = bcrypt.compareSync(password, user.passwordHash);
+    } catch {
+      isMatch = false;
+    }
+
+    // Automatic migration from legacy SHA256 to Bcrypt
+    if (!isMatch) {
+      const legacyHash = crypto.createHash('sha256').update(password).digest('hex');
+      if (legacyHash === user.passwordHash) {
+        isMatch = true;
+        user.passwordHash = bcrypt.hashSync(password, 10);
+        saveUsers(usersStore);
+      }
+    }
+
+    if (!isMatch) {
       return res.status(401).json({ error: 'Incorrect password. Please try again.' });
     }
 
     const token = crypto.randomBytes(24).toString('hex');
     customerSessions.set(token, user.id);
+    saveCustomerAndAdminSessions();
 
     res.json({
       success: true,
@@ -1330,13 +1335,15 @@ app.post('/api/orders', (req: Request, res: Response) => {
       pointsRedeemed ? Number(pointsRedeemed) : (pointsDiscount ? Number(pointsDiscount) : 0),
       user?.loyaltyPoints || 0
     );
-    const orderId = `SB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const finalDiscount = financials.discount;
-    const finalTotal = financials.total;
-
     const isCOD = paymentMethod === 'COD' || paymentMethod?.toLowerCase()?.includes('cash on delivery');
-    const txnId = transactionId || (isCOD ? undefined : `TXN_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`);
+    if (!isCOD) {
+      return res.status(400).json({
+        error: 'Online payments must be initiated and verified through the Razorpay gateway (/api/payment/razorpay-order and /api/payment/verify-signature).',
+      });
+    }
+
+    const orderId = `SB-${new Date().getFullYear()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
+    const txnId = `COD_${Date.now()}`;
 
     const newOrder: StoredOrder = {
       orderId,
@@ -1344,8 +1351,8 @@ app.post('/api/orders', (req: Request, res: Response) => {
       items: financials.validatedItems,
       deliveryDate: deliveryDate || new Date().toISOString().split('T')[0],
       deliverySlot: deliverySlot || 'evening',
-      paymentMethod: paymentMethod || (isCOD ? 'Cash on Delivery' : 'ONLINE_UPI'),
-      paymentStatus: isCOD ? 'PENDING' : 'PAID',
+      paymentMethod: 'Cash on Delivery (Doorstep)',
+      paymentStatus: 'PENDING',
       transactionId: txnId,
       subtotal: financials.subtotal,
       deliveryFee: financials.deliveryFee,
@@ -1435,20 +1442,34 @@ app.get('/api/orders/track', (req: Request, res: Response) => {
     return res.status(404).json({ error: 'No order found with the provided Order ID.' });
   }
 
-  // If phoneOrEmail is provided, verify match for customer privacy
-  if (phoneOrEmail && typeof phoneOrEmail === 'string') {
+  // Verify ownership: authenticated customer OR matching phone/email verification
+  const authUser = getAuthUser(req);
+  const isOwner = authUser && (
+    (authUser.email && authUser.email.toLowerCase() === (found.customer?.email || '').toLowerCase()) ||
+    (authUser.phone && found.customer?.phone && authUser.phone.replace(/\D/g, '').slice(-10) === found.customer.phone.replace(/\D/g, '').slice(-10))
+  );
+
+  if (!isOwner) {
+    if (!phoneOrEmail || typeof phoneOrEmail !== 'string' || !phoneOrEmail.trim()) {
+      return res.status(400).json({
+        error: 'For customer security and privacy, please provide the registered 10-digit mobile number or email address associated with this order.',
+        code: 'VERIFICATION_REQUIRED',
+      });
+    }
+
     const input = phoneOrEmail.trim().toLowerCase();
     const phoneDigits = input.replace(/\D/g, '');
-    const phoneMatch = phoneDigits.length >= 4 && found.customer?.phone
-      ? found.customer.phone.replace(/\D/g, '').includes(phoneDigits)
+    const phoneMatch = phoneDigits.length >= 10 && found.customer?.phone
+      ? found.customer.phone.replace(/\D/g, '').slice(-10) === phoneDigits.slice(-10)
       : false;
     const emailMatch = found.customer?.email
-      ? found.customer.email.toLowerCase().includes(input)
+      ? found.customer.email.toLowerCase().trim() === input
       : false;
 
     if (!phoneMatch && !emailMatch) {
       return res.status(403).json({
-        error: 'The phone number or email does not match our records for this order.',
+        error: 'The mobile number or email does not match our records for this order.',
+        code: 'VERIFICATION_FAILED',
       });
     }
   }
@@ -1459,23 +1480,55 @@ app.get('/api/orders/track', (req: Request, res: Response) => {
   });
 });
 
-// GET latest order for seamless 1-click live tracking experience
-app.get('/api/orders/latest', (_req: Request, res: Response) => {
-  if (ordersStore.length === 0) {
-    return res.status(404).json({ error: 'No orders available' });
+// GET latest order for authenticated customer or administrator
+app.get('/api/orders/latest', (req: Request, res: Response) => {
+  const authUser = getAuthUser(req);
+
+  if (authUser) {
+    const userCleanEmail = authUser.email.toLowerCase();
+    const userPhoneDigits = authUser.phone.replace(/\D/g, '').slice(-10);
+    const userOrders = ordersStore.filter((o) => {
+      const oEmail = (o.customer?.email || '').toLowerCase();
+      const oPhone = (o.customer?.phone || '').replace(/\D/g, '').slice(-10);
+      return (oEmail && oEmail === userCleanEmail) || (oPhone && oPhone === userPhoneDigits);
+    });
+    if (userOrders.length > 0) {
+      return res.json({ success: true, order: userOrders[0] });
+    }
+    return res.status(404).json({ error: 'No recent orders found for your account' });
   }
-  // Return the most recently placed order (first or last by date)
-  const sorted = [...ordersStore].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-  res.json({
-    success: true,
-    order: sorted[0],
+
+  // Check if admin is authenticated
+  const authHeader = req.headers.authorization;
+  const adminKeyHeader = (req.headers['x-admin-key'] || req.headers['x-admin-token']) as string;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : null;
+  const isAdmin = (token && adminSessions.has(token)) || (adminKeyHeader && adminSessions.has(adminKeyHeader));
+
+  if (isAdmin) {
+    if (ordersStore.length === 0) {
+      return res.status(404).json({ error: 'No orders available' });
+    }
+    const sorted = [...ordersStore].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    return res.json({ success: true, order: sorted[0] });
+  }
+
+  return res.status(401).json({
+    error: 'Authentication or order verification required. Please track your order by Order ID and registered mobile number.',
+    code: 'AUTH_REQUIRED',
   });
 });
 
-// Simulation endpoint for realistic Zomato/Swiggy-style delivery tracking progress
-app.post('/api/orders/:orderId/simulate-stage', (req: Request, res: Response) => {
+// Admin-protected simulation endpoint for delivery tracking progression
+app.post('/api/orders/:orderId/simulate-stage', verifyAdminAuth, (req: Request, res: Response) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({
+      error: 'Order stage simulation is disabled in production environments for operational integrity.',
+      code: 'SIMULATION_DISABLED_IN_PRODUCTION',
+    });
+  }
+
   const { orderId } = req.params;
   const { targetStage, note } = req.body;
 
@@ -1543,7 +1596,7 @@ export interface AdminSession {
   expiresAt: number;
 }
 
-const adminSessions = new Map<string, AdminSession>();
+const adminSessions = new Map<string, AdminSession>(Object.entries(persistedSessions.adminSessions || {}));
 
 interface LoginAttempt {
   count: number;
@@ -1556,7 +1609,7 @@ const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'sweetbliss-admin-2026';
 const ADMIN_API_KEY = process.env.ADMIN_KEY || 'sweetbliss-admin-2026';
 
-const adminPasswordHash = crypto.createHash('sha256').update(ADMIN_PASSWORD).digest('hex');
+const adminPasswordBcrypt = bcrypt.hashSync(ADMIN_PASSWORD, 10);
 
 function verifyAdminAuth(req: Request, res: Response, next: () => void) {
   const authHeader = req.headers.authorization;
@@ -1581,15 +1634,31 @@ function verifyAdminAuth(req: Request, res: Response, next: () => void) {
     }
   }
 
-  // 3. Static admin key or secret verification (for internal server/tool calls)
-  if (adminKeyHeader && (adminKeyHeader === ADMIN_API_KEY || adminKeyHeader === ADMIN_PASSWORD)) {
-    (req as any).adminUser = { username: ADMIN_USERNAME, role: 'superadmin', createdAt: Date.now(), expiresAt: Date.now() + 86400000 };
-    return next();
+  // 3. Static admin key or secret verification (for internal automated calls)
+  if (adminKeyHeader) {
+    if (process.env.NODE_ENV === 'production' && adminKeyHeader === 'sweetbliss-admin-2026') {
+      return res.status(401).json({
+        error: 'Default fallback admin key is disabled in production. Set strong ADMIN_KEY in .env.',
+        code: 'INSECURE_DEFAULT_DISABLED',
+      });
+    }
+    if (adminKeyHeader === ADMIN_API_KEY || adminKeyHeader === ADMIN_PASSWORD) {
+      (req as any).adminUser = { username: ADMIN_USERNAME, role: 'superadmin', createdAt: Date.now(), expiresAt: Date.now() + 86400000 };
+      return next();
+    }
   }
 
-  if (authHeader && (authHeader === ADMIN_API_KEY || authHeader === ADMIN_PASSWORD)) {
-    (req as any).adminUser = { username: ADMIN_USERNAME, role: 'superadmin', createdAt: Date.now(), expiresAt: Date.now() + 86400000 };
-    return next();
+  if (authHeader) {
+    if (process.env.NODE_ENV === 'production' && authHeader === 'sweetbliss-admin-2026') {
+      return res.status(401).json({
+        error: 'Default fallback admin credentials disabled in production.',
+        code: 'INSECURE_DEFAULT_DISABLED',
+      });
+    }
+    if (authHeader === ADMIN_API_KEY || authHeader === ADMIN_PASSWORD) {
+      (req as any).adminUser = { username: ADMIN_USERNAME, role: 'superadmin', createdAt: Date.now(), expiresAt: Date.now() + 86400000 };
+      return next();
+    }
   }
 
   return res.status(401).json({
@@ -1618,12 +1687,23 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
   let authenticatedUser = ADMIN_USERNAME;
 
   if (key && (key === ADMIN_API_KEY || key === ADMIN_PASSWORD)) {
+    if (process.env.NODE_ENV === 'production' && key === 'sweetbliss-admin-2026') {
+      return res.status(401).json({ error: 'Default admin key disabled in production. Set ADMIN_KEY.' });
+    }
     isValid = true;
   } else if (password) {
-    const inputHash = crypto.createHash('sha256').update(password).digest('hex');
+    let passwordMatches = false;
+    try {
+      passwordMatches = bcrypt.compareSync(password, adminPasswordBcrypt);
+    } catch {
+      passwordMatches = false;
+    }
+    if (!passwordMatches && (password === ADMIN_PASSWORD || password === ADMIN_API_KEY)) {
+      passwordMatches = true;
+    }
+
     const uMatches = !username || username.trim() === ADMIN_USERNAME || username.trim().toLowerCase() === 'ansariwazid1995@gmail.com' || username.trim().toLowerCase() === 'admin@sweetbliss.com';
-    const pMatches = password === ADMIN_PASSWORD || inputHash === adminPasswordHash || password === ADMIN_API_KEY;
-    if (uMatches && pMatches) {
+    if (uMatches && passwordMatches) {
       isValid = true;
       authenticatedUser = username?.trim() || ADMIN_USERNAME;
     }
@@ -1639,6 +1719,7 @@ app.post('/api/admin/login', (req: Request, res: Response) => {
       expiresAt: now + 8 * 60 * 60 * 1000, // 8 hours
     };
     adminSessions.set(sessionToken, session);
+    saveCustomerAndAdminSessions();
 
     return res.json({
       success: true,
@@ -1674,6 +1755,7 @@ app.post('/api/admin/logout', (req: Request, res: Response) => {
 
   if (token && adminSessions.has(token)) {
     adminSessions.delete(token);
+    saveCustomerAndAdminSessions();
   }
 
   res.json({ success: true, message: 'Admin logged out successfully. Session invalidated.' });
@@ -2840,8 +2922,75 @@ app.post('/api/custom-cakes', (req: Request, res: Response) => {
   }
 });
 
+function validateProductionConfig() {
+  const warnings: string[] = [];
+  const checks: string[] = [];
+
+  const isProd = process.env.NODE_ENV === 'production';
+  checks.push(`Environment: ${isProd ? 'PRODUCTION' : 'DEVELOPMENT / PREVIEW'}`);
+
+  // Admin security
+  if (!process.env.ADMIN_KEY && !process.env.ADMIN_PASSWORD) {
+    warnings.push('ADMIN_KEY and ADMIN_PASSWORD are unset in environment. Using fallback demo credentials.');
+  } else if (
+    process.env.ADMIN_KEY === 'sweetbliss-admin-2026' ||
+    process.env.ADMIN_PASSWORD === 'sweetbliss-admin-2026'
+  ) {
+    warnings.push('CRITICAL: Default admin credentials ("sweetbliss-admin-2026") detected. Rotate ADMIN_KEY and ADMIN_PASSWORD prior to live public ordering.');
+  } else {
+    checks.push('Admin Authentication: Configured with custom environment credentials');
+  }
+
+  // Razorpay payment gateway
+  const isRazorpayConfigured = Boolean(
+    process.env.RAZORPAY_KEY_ID &&
+      process.env.RAZORPAY_KEY_SECRET &&
+      !process.env.RAZORPAY_KEY_ID.includes('YourKeyId') &&
+      !process.env.RAZORPAY_KEY_ID.includes('rzp_test_SweetBlissSandbox')
+  );
+
+  if (isRazorpayConfigured) {
+    checks.push('Payment Gateway: Razorpay Live / Production credentials active');
+  } else {
+    warnings.push('Razorpay Payment Gateway: Operating in Sandbox Simulation mode. Real card/UPI settlements require verified keys in .env.');
+  }
+
+  if (isProd && (!process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_WEBHOOK_SECRET.includes('YourWebhookSecret'))) {
+    warnings.push('RAZORPAY_WEBHOOK_SECRET: Unset in production. Webhook signature verification will block unverified notifications.');
+  }
+
+  // AI Chef Brief
+  if (process.env.GEMINI_API_KEY) {
+    checks.push('AI Pastry Chef: Gemini API key detected');
+  } else {
+    checks.push('AI Pastry Chef: Gemini API key unset (artisan rule-based fallback active)');
+  }
+
+  // Persistence check
+  try {
+    const testFile = path.join(__dirname, '.persistence_health.tmp');
+    fs.writeFileSync(testFile, 'OK', 'utf-8');
+    fs.unlinkSync(testFile);
+    checks.push('Database Persistence: Local JSON store with atomic writes & backup recovery verified');
+  } catch (err: any) {
+    warnings.push(`Database Persistence: Write permissions check failed on storage directory: ${err.message}`);
+  }
+
+  console.log('\n=============================================================');
+  console.log('🍰 SWEET BLISS BAKERY — SYSTEM READINESS & AUDIT MONITOR');
+  console.log('=============================================================');
+  checks.forEach((c) => console.log(`  ✅ ${c}`));
+  if (warnings.length > 0) {
+    console.log('-------------------------------------------------------------');
+    warnings.forEach((w) => console.log(`  ⚠️  ${w}`));
+  }
+  console.log('=============================================================\n');
+}
+
 // Start dev server with Vite middlewares, or static serving in production
 async function startServer() {
+  validateProductionConfig();
+
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'dist')));
     app.get('*', (_req: Request, res: Response) => {

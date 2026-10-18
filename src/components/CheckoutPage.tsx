@@ -227,67 +227,25 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Realistic Gateway Modals (Authentic 3D Secure / UPI Pin)
-  const [upiPinModal, setUpiPinModal] = useState<{
+  // Razorpay Gateway Sandbox Testing Modal State
+  const [razorpaySandboxModal, setRazorpaySandboxModal] = useState<{
     isOpen: boolean;
-    appLabel: string;
-    pin: string;
-    step: 'enter_pin' | 'authorizing' | 'success';
+    pendingOrderId: string;
+    razorpayOrderId: string;
+    amountInr: number;
+    amountPaise: number;
+    paymentCategory: string;
+    loading: boolean;
     error: string;
-    incomingSmsAlert: string | null;
   }>({
     isOpen: false,
-    appLabel: 'Google Pay',
-    pin: '',
-    step: 'enter_pin',
+    pendingOrderId: '',
+    razorpayOrderId: '',
+    amountInr: 0,
+    amountPaise: 0,
+    paymentCategory: 'UPI',
+    loading: false,
     error: '',
-    incomingSmsAlert: null,
-  });
-
-  const [card3DSecureModal, setCard3DSecureModal] = useState<{
-    isOpen: boolean;
-    bankName: string;
-    otp: string;
-    expectedOtp: string;
-    verifying: boolean;
-    step: 'otp' | 'success';
-    timer: number;
-    error: string;
-    incomingSmsAlert: string | null;
-  }>({
-    isOpen: false,
-    bankName: 'HDFC Bank',
-    otp: '',
-    expectedOtp: '748291',
-    verifying: false,
-    step: 'otp',
-    timer: 45,
-    error: '',
-    incomingSmsAlert: null,
-  });
-
-  const [netBankingModal, setNetBankingModal] = useState<{
-    isOpen: boolean;
-    bank: BankOption;
-    userId: string;
-    password: string;
-    otp: string;
-    expectedOtp: string;
-    step: 'login' | 'otp' | 'authorizing' | 'success';
-    timer: number;
-    error: string;
-    incomingSmsAlert: string | null;
-  }>({
-    isOpen: false,
-    bank: POPULAR_BANKS[0],
-    userId: '',
-    password: '',
-    otp: '',
-    expectedOtp: '839210',
-    step: 'login',
-    timer: 45,
-    error: '',
-    incomingSmsAlert: null,
   });
 
   // Regenerate COD captcha on mount
@@ -310,25 +268,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
   }, [selectedUpiApp, qrCountdown]);
 
-  // Card 3DS Timer
-  useEffect(() => {
-    if (card3DSecureModal.isOpen && card3DSecureModal.timer > 0) {
-      const interval = setInterval(() => {
-        setCard3DSecureModal((prev) => ({ ...prev, timer: Math.max(0, prev.timer - 1) }));
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [card3DSecureModal.isOpen, card3DSecureModal.timer]);
-
-  // NetBanking 3DS Timer
-  useEffect(() => {
-    if (netBankingModal.isOpen && netBankingModal.step === 'otp' && netBankingModal.timer > 0) {
-      const interval = setInterval(() => {
-        setNetBankingModal((prev) => ({ ...prev, timer: Math.max(0, prev.timer - 1) }));
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [netBankingModal.isOpen, netBankingModal.step, netBankingModal.timer]);
 
   // Empty Cart Screen
   if (cartItems.length === 0) {
@@ -548,127 +487,215 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
   };
 
+  // Final Order Submission to Server (For Cash on Delivery)
+  const finalizeOrderOnServer = async (methodLabel: string, txnReference?: string) => {
+    setIsSubmitting(true);
+    setErrorMessage('');
+
+    try {
+      const orderPayload = {
+        customer: {
+          fullName: formData.fullName.trim(),
+          phone: formData.phone.trim(),
+          email: formData.email.trim() || 'customer@sweetbliss.com',
+          address: formData.address.trim(),
+          pincode: formData.pincode.trim(),
+          city: formData.city.trim(),
+          landmark: formData.landmark.trim() || undefined,
+        },
+        items: cartItems.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          weightKg: item.weightKg,
+          price: item.unitPrice,
+          quantity: item.quantity,
+          isEggless: item.isEggless,
+          cakeMessage: item.cakeMessage || undefined,
+          flavour: item.flavour || undefined,
+        })),
+        deliveryDate: formData.deliveryDate,
+        deliverySlot: formData.deliverySlot,
+        paymentMethod: methodLabel,
+        orderNotes: formData.orderNotes.trim() || undefined,
+        transactionId: txnReference,
+        promoDiscount: promoDiscount,
+        pointsDiscount: pointsDiscount,
+        pointsRedeemed: redeemPointsChecked ? maxRedeemablePoints : 0,
+      };
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderPayload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to place order. Please try again.');
+      }
+
+      // Audio celebration
+      playPaymentSuccessChime();
+
+      onOrderCompleted(data.order);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Order communication error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Online Payment via Razorpay Gateway (Server Order Creation & Signature Verification)
+  const initiateRazorpayPayment = async (selectedMethod: string) => {
+    setIsSubmitting(true);
+    setErrorMessage('');
+
+    try {
+      const orderPayload = {
+        customer: {
+          fullName: formData.fullName.trim(),
+          phone: formData.phone.trim(),
+          email: formData.email.trim() || 'customer@sweetbliss.com',
+          address: formData.address.trim(),
+          pincode: formData.pincode.trim(),
+          city: formData.city.trim(),
+          landmark: formData.landmark.trim() || undefined,
+        },
+        items: cartItems.map((item) => ({
+          productId: item.product.id,
+          name: item.product.name,
+          weightKg: item.weightKg,
+          price: item.unitPrice,
+          quantity: item.quantity,
+          isEggless: item.isEggless,
+          cakeMessage: item.cakeMessage || undefined,
+          flavour: item.flavour || undefined,
+        })),
+        deliveryDate: formData.deliveryDate,
+        deliverySlot: formData.deliverySlot,
+        orderNotes: formData.orderNotes.trim() || undefined,
+        promoCode: appliedPromo?.code || undefined,
+        pointsRedeemed: redeemPointsChecked ? maxRedeemablePoints : 0,
+      };
+
+      const res = await fetch('/api/payment/razorpay-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderPayload),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to initiate Razorpay payment order.');
+      }
+
+      const hasLiveRazorpay = typeof window !== 'undefined' && (window as any).Razorpay && !data.isSandbox;
+
+      if (hasLiveRazorpay) {
+        const rzp = new (window as any).Razorpay({
+          key: data.keyId,
+          amount: data.amountPaise,
+          currency: 'INR',
+          name: 'Sweet Bliss by Jyoti Tanti',
+          description: `Artisan Cake Order (${data.pendingOrderId})`,
+          order_id: data.razorpayOrderId,
+          prefill: {
+            name: formData.fullName,
+            email: formData.email,
+            contact: formData.phone,
+          },
+          theme: {
+            color: '#881337',
+          },
+          handler: async function (response: any) {
+            try {
+              const verifyRes = await fetch('/api/payment/verify-signature', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  pendingOrderId: data.pendingOrderId,
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+              const verifyData = await verifyRes.json();
+              if (verifyRes.ok && verifyData.verified) {
+                playPaymentSuccessChime();
+                onOrderCompleted(verifyData.order);
+              } else {
+                setErrorMessage(verifyData.error || 'Signature verification failed.');
+              }
+            } catch (err: any) {
+              setErrorMessage('Payment verification error: ' + err.message);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setIsSubmitting(false);
+            },
+          },
+        });
+        rzp.open();
+      } else {
+        // Open Sandbox Test Mode Modal with live order verification capability
+        setRazorpaySandboxModal({
+          isOpen: true,
+          pendingOrderId: data.pendingOrderId,
+          razorpayOrderId: data.razorpayOrderId,
+          amountInr: data.amountInr,
+          amountPaise: data.amountPaise,
+          paymentCategory: selectedMethod.toUpperCase(),
+          loading: false,
+          error: '',
+        });
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Payment initiation failed. Please check order details.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSandboxConfirm = async (simulateFailure: boolean) => {
+    setRazorpaySandboxModal((prev) => ({ ...prev, loading: true, error: '' }));
+    try {
+      const verifyRes = await fetch('/api/payment/verify-signature', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pendingOrderId: razorpaySandboxModal.pendingOrderId,
+          razorpay_order_id: razorpaySandboxModal.razorpayOrderId,
+          razorpay_payment_id: `pay_sandbox_${Date.now()}`,
+          razorpay_signature: simulateFailure ? 'tampered_invalid_signature' : 'sandbox_verified',
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+      if (verifyRes.ok && verifyData.verified) {
+        setRazorpaySandboxModal((prev) => ({ ...prev, isOpen: false, loading: false }));
+        playPaymentSuccessChime();
+        onOrderCompleted(verifyData.order);
+      } else {
+        setRazorpaySandboxModal((prev) => ({
+          ...prev,
+          loading: false,
+          error: verifyData.error || 'Payment signature rejected by server as expected.',
+        }));
+      }
+    } catch (err: any) {
+      setRazorpaySandboxModal((prev) => ({
+        ...prev,
+        loading: false,
+        error: 'Communication error: ' + err.message,
+      }));
+    }
+  };
+
   // Payment Initiation Trigger
   const handleProceedPayment = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMessage('');
-
-    // --- UPI FLOW ---
-    if (paymentCategory === 'upi') {
-      if (selectedUpiApp === 'qr') {
-        finalizeOrderOnServer('UPI QR Code', `UPI_QR_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`);
-        return;
-      }
-
-      if (selectedUpiApp === 'vpa') {
-        if (!upiVpa.trim() || !upiVpa.includes('@')) {
-          setErrorMessage('Please enter a valid UPI ID (e.g. name@okhdfcbank).');
-          return;
-        }
-      }
-
-      const appTitle =
-        selectedUpiApp === 'gpay'
-          ? 'Google Pay UPI'
-          : selectedUpiApp === 'phonepe'
-          ? 'PhonePe UPI'
-          : selectedUpiApp === 'paytm'
-          ? 'Paytm UPI'
-          : selectedUpiApp === 'bhim'
-          ? 'BHIM UPI'
-          : `UPI ID (${upiVpa.trim()})`;
-
-      // Open authentic NPCI UPI Pin modal
-      setUpiPinModal({
-        isOpen: true,
-        appLabel: appTitle,
-        pin: '',
-        step: 'enter_pin',
-        error: '',
-        incomingSmsAlert: `🔔 SMS Alert: Your OTP for Sweet Bliss Bakery ₹${total} is 638291. Valid for 10 mins.`,
-      });
-      return;
-    }
-
-    // --- CREDIT/DEBIT CARD FLOW ---
-    if (paymentCategory === 'card') {
-      const cleanNum = cardNumber.replace(/\s/g, '');
-      if (cleanNum.length < 15) {
-        setErrorMessage('Please enter a valid 16-digit card number.');
-        return;
-      }
-      if (!cardExpiry || cardExpiry.length < 5) {
-        setErrorMessage('Please enter card expiry date (MM/YY).');
-        return;
-      }
-      if (!cardCvv || cardCvv.length < 3) {
-        setErrorMessage('Please enter 3-digit CVV from the back of your card.');
-        return;
-      }
-
-      const network = detectCardNetwork(cardNumber).toUpperCase();
-      const detectedBank = cleanNum.startsWith('4') ? 'HDFC Bank' : cleanNum.startsWith('5') ? 'SBI Card' : 'ICICI Bank';
-
-      const generated3dsOtp = String(Math.floor(100000 + Math.random() * 900000));
-      setCard3DSecureModal({
-        isOpen: true,
-        bankName: `${detectedBank} ${network} Secure`,
-        otp: '',
-        expectedOtp: generated3dsOtp,
-        verifying: false,
-        step: 'otp',
-        timer: 45,
-        error: '',
-        incomingSmsAlert: `🔔 Bank SMS (${detectedBank}): OTP for ₹${total} to Sweet Bliss Bakery is ${generated3dsOtp}. Never share OTP with anyone.`,
-      });
-      return;
-    }
-
-    // --- NET BANKING FLOW ---
-    if (paymentCategory === 'netbanking') {
-      const chosenBank =
-        POPULAR_BANKS.find((b) => b.id === selectedBankId) ||
-        (otherBankSelect
-          ? {
-              id: 'OTHER',
-              name: otherBankSelect,
-              shortCode: otherBankSelect.slice(0, 4).toUpperCase(),
-              primaryColor: '#004c8f',
-              secondaryColor: '#e8f0fe',
-              logoText: 'BANK',
-            }
-          : POPULAR_BANKS[0]);
-
-      const netOtp = String(Math.floor(100000 + Math.random() * 900000));
-      setNetBankingModal({
-        isOpen: true,
-        bank: chosenBank,
-        userId: '',
-        password: '',
-        otp: '',
-        expectedOtp: netOtp,
-        step: 'login',
-        timer: 45,
-        error: '',
-        incomingSmsAlert: null,
-      });
-      return;
-    }
-
-    // --- DIGITAL WALLET FLOW ---
-    if (paymentCategory === 'wallet') {
-      const walletLabel =
-        selectedWallet === 'amazonpay'
-          ? 'Amazon Pay'
-          : selectedWallet === 'paytm'
-          ? 'Paytm Wallet'
-          : selectedWallet === 'mobikwik'
-          ? 'MobiKwik'
-          : 'Simpl Pay Later';
-
-      finalizeOrderOnServer(`Wallet (${walletLabel})`, `WLT_${selectedWallet.toUpperCase()}_${Date.now()}`);
-      return;
-    }
 
     // --- CASH ON DELIVERY FLOW ---
     if (paymentCategory === 'cod') {
@@ -676,79 +703,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         setErrorMessage(`Please enter the correct 4-digit verification code (${generatedCaptcha}) to confirm Cash on Delivery.`);
         return;
       }
-      finalizeOrderOnServer('Cash on Delivery (Doorstep)', `COD_${Date.now()}`);
-      return;
-    }
-  };
-
-  // UPI PIN Modal Submit
-  const handleUpiPinConfirm = () => {
-    if (upiPinModal.pin.length < 4) {
-      setUpiPinModal((prev) => ({ ...prev, error: 'Please enter your 4-digit UPI PIN.' }));
+      finalizeOrderOnServer('Cash on Delivery (Doorstep)');
       return;
     }
 
-    setUpiPinModal((prev) => ({ ...prev, step: 'authorizing', error: '' }));
-
-    setTimeout(() => {
-      setUpiPinModal((prev) => ({ ...prev, step: 'success' }));
-      setTimeout(() => {
-        setUpiPinModal((prev) => ({ ...prev, isOpen: false }));
-        finalizeOrderOnServer(upiPinModal.appLabel, `UPI_RR_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`);
-      }, 700);
-    }, 1100);
-  };
-
-  // Card 3D Secure OTP Submit
-  const handleCard3DSecureSubmit = () => {
-    if (!card3DSecureModal.otp.trim() || card3DSecureModal.otp.length < 4) {
-      setCard3DSecureModal((prev) => ({ ...prev, error: 'Please enter the 6-digit bank verification OTP.' }));
-      return;
-    }
-
-    setCard3DSecureModal((prev) => ({ ...prev, verifying: true, error: '' }));
-
-    setTimeout(() => {
-      setCard3DSecureModal((prev) => ({ ...prev, verifying: false, step: 'success' }));
-      setTimeout(() => {
-        setCard3DSecureModal((prev) => ({ ...prev, isOpen: false }));
-        const network = detectCardNetwork(cardNumber).toUpperCase();
-        const last4 = cardNumber.replace(/\s/g, '').slice(-4) || '8492';
-        finalizeOrderOnServer(`Card (${network} •••• ${last4})`, `CARD_3DS_${Date.now()}`);
-      }, 700);
-    }, 1200);
-  };
-
-  // NetBanking Handlers
-  const handleNetBankingLogin = () => {
-    if (!netBankingModal.userId.trim() || !netBankingModal.password.trim()) {
-      setNetBankingModal((prev) => ({ ...prev, error: 'Please enter your Customer / User ID and Password.' }));
-      return;
-    }
-    setNetBankingModal((prev) => ({
-      ...prev,
-      step: 'otp',
-      timer: 45,
-      error: '',
-      incomingSmsAlert: `🔔 Bank Alert (${prev.bank.name}): High-Security OTP for Sweet Bliss Artisan Bakery ₹${total} is ${prev.expectedOtp}.`,
-    }));
-  };
-
-  const handleNetBankingOtpSubmit = () => {
-    if (!netBankingModal.otp.trim() || netBankingModal.otp.length < 4) {
-      setNetBankingModal((prev) => ({ ...prev, error: 'Please enter the 6-digit Bank Security OTP.' }));
-      return;
-    }
-
-    setNetBankingModal((prev) => ({ ...prev, step: 'authorizing', error: '' }));
-
-    setTimeout(() => {
-      setNetBankingModal((prev) => ({ ...prev, step: 'success' }));
-      setTimeout(() => {
-        setNetBankingModal((prev) => ({ ...prev, isOpen: false }));
-        finalizeOrderOnServer(`NetBanking (${netBankingModal.bank.name})`, `NETB_${netBankingModal.bank.shortCode}_${Date.now()}`);
-      }, 700);
-    }, 1200);
+    // --- ONLINE PAYMENT FLOWS (Razorpay Order + Signature Verification) ---
+    initiateRazorpayPayment(paymentCategory);
   };
 
   const detectedNetwork = detectCardNetwork(cardNumber);

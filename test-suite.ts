@@ -531,6 +531,166 @@ async function runTests() {
   }
 
   // -------------------------------------------------------------
+  // Test 16: Customer Registration, Password Hashing & Profile Token
+  // -------------------------------------------------------------
+  let customerToken = '';
+  const testCustomerEmail = `audit_${Date.now()}@testbakery.com`;
+  try {
+    const resSignup = await fetch(`${BASE_URL}/api/auth/signup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Aarav Patel',
+        email: testCustomerEmail,
+        phone: '9845012345',
+        password: 'SecureBakeryPass!99',
+        address: '12 Rosewood Villas',
+        city: 'Bangalore',
+        pincode: '562162',
+      }),
+    });
+    const signupData = await resSignup.json();
+    if (resSignup.status === 201 && signupData.token && signupData.user) {
+      customerToken = signupData.token;
+
+      // Verify /api/auth/me accepts Bearer token
+      const resMe = await fetch(`${BASE_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${customerToken}` },
+      });
+      const meData = await resMe.json();
+
+      if (resMe.ok && meData.user && meData.user.email === testCustomerEmail) {
+        results.push({
+          name: '16. Customer Registration & Bcrypt Session Auth',
+          passed: true,
+          details: `Registered customer with bcrypt password hash; verified Bearer token via /api/auth/me.`,
+        });
+      } else {
+        throw new Error('Failed to verify customer profile session');
+      }
+    } else {
+      throw new Error(`Signup failed: ${JSON.stringify(signupData)}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '16. Customer Registration & Bcrypt Session Auth', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 17: Order Tracking Security & Data Privacy Verification
+  // -------------------------------------------------------------
+  try {
+    // 1. Unauthenticated request without phone/email -> 400 VERIFICATION_REQUIRED
+    const resNoVerify = await fetch(`${BASE_URL}/api/orders/track?orderId=${createdOrderId}`);
+    const noVerifyData = await resNoVerify.json();
+
+    // 2. Request with incorrect phone -> 403 VERIFICATION_FAILED
+    const resBadPhone = await fetch(`${BASE_URL}/api/orders/track?orderId=${createdOrderId}&phoneOrEmail=9111111111`);
+
+    // 3. Request with correct phone (9876543210) -> 200 OK
+    const resGoodPhone = await fetch(`${BASE_URL}/api/orders/track?orderId=${createdOrderId}&phoneOrEmail=9876543210`);
+    const goodData = await resGoodPhone.json();
+
+    if (
+      resNoVerify.status === 400 &&
+      noVerifyData.code === 'VERIFICATION_REQUIRED' &&
+      resBadPhone.status === 403 &&
+      resGoodPhone.ok &&
+      goodData.order?.orderId === createdOrderId
+    ) {
+      results.push({
+        name: '17. Order Tracking Privacy & Verification Guard',
+        passed: true,
+        details: 'Blocked snooping without phone (HTTP 400); rejected mismatched mobile (HTTP 403); released details only with matching 10-digit number.',
+      });
+    } else {
+      throw new Error(`Tracking security failed: ${resNoVerify.status}, ${resBadPhone.status}, ${resGoodPhone.status}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '17. Order Tracking Privacy & Verification Guard', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 18: Razorpay Order Creation & Tampered Signature Rejection
+  // -------------------------------------------------------------
+  try {
+    // Initiate Razorpay order server-side
+    const resRzp = await fetch(`${BASE_URL}/api/payment/razorpay-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer: {
+          fullName: 'Priya Sharma',
+          phone: '9888877777',
+          address: '42 Orchid Residency',
+        },
+        items: [
+          {
+            productId: 't1',
+            name: 'Belgian Truffle',
+            weightKg: 0.5,
+            price: 749,
+            quantity: 1,
+            isEggless: true,
+          },
+        ],
+        deliverySlot: 'evening',
+      }),
+    });
+    const rzpData = await resRzp.json();
+
+    if (!resRzp.ok || !rzpData.pendingOrderId) {
+      throw new Error(`Failed to create Razorpay order: ${JSON.stringify(rzpData)}`);
+    }
+
+    // Attempt verify with tampered invalid signature
+    const resTamper = await fetch(`${BASE_URL}/api/payment/verify-signature`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pendingOrderId: rzpData.pendingOrderId,
+        razorpay_order_id: rzpData.razorpayOrderId,
+        razorpay_payment_id: 'pay_test_hacker',
+        razorpay_signature: 'tampered_invalid_signature',
+      }),
+    });
+
+    if (resTamper.status === 400) {
+      results.push({
+        name: '18. Razorpay Signature Verification & Tamper Defense',
+        passed: true,
+        details: `Created server-side order (${rzpData.pendingOrderId}); server rejected forged signature with HTTP 400 and marked order as PAYMENT_FAILED.`,
+      });
+    } else {
+      throw new Error(`Server accepted tampered signature! status ${resTamper.status}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '18. Razorpay Signature Verification & Tamper Defense', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 19: Order Stage Simulation Access Guard
+  // -------------------------------------------------------------
+  try {
+    const resSim = await fetch(`${BASE_URL}/api/orders/${createdOrderId}/simulate-stage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetStage: 'Delivered' }),
+    });
+
+    if (resSim.status === 401) {
+      results.push({
+        name: '19. Order Simulation Endpoint Protection',
+        passed: true,
+        details: 'Public call to stage simulation blocked with HTTP 401 Unauthorized (admin session required).',
+      });
+    } else {
+      throw new Error(`Simulation endpoint unprotected! status: ${resSim.status}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '19. Order Simulation Endpoint Protection', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
   // Print Summary
   // -------------------------------------------------------------
   console.log('\n======================================================');

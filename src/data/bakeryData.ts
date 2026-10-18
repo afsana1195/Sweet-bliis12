@@ -2597,6 +2597,8 @@ export const BUSINESS_CONFIG = {
   pincode: '562162',
   bakingHours: 'Mon - Sun: 8:00 AM - 11:30 PM',
   currency: '₹',
+  fssaiLicence: '[FSSAI Registration / License In Progress - Specify in bakeryData.ts or .env]',
+  gstin: '[GSTIN Registration In Progress - Specify in bakeryData.ts or .env]',
   deliveryPincodes: ['562162', '560100', '560099', '560068', '560076', '560105', '560034', '562106', '560066', '560037'],
   freeDeliveryThreshold: 0,
   standardDeliveryFee: 0,
