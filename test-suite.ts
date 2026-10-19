@@ -542,7 +542,7 @@ async function runTests() {
       body: JSON.stringify({
         name: 'Aarav Patel',
         email: testCustomerEmail,
-        phone: '9845012345',
+        phone: '9845' + String(Date.now()).slice(-6),
         password: 'SecureBakeryPass!99',
         address: '12 Rosewood Villas',
         city: 'Bangalore',
@@ -688,6 +688,87 @@ async function runTests() {
     }
   } catch (err: any) {
     results.push({ name: '19. Order Simulation Endpoint Protection', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 20: System Health & Persistence Monitor
+  // -------------------------------------------------------------
+  try {
+    const resHealth = await fetch(`${BASE_URL}/api/health`);
+    const healthData = await resHealth.json();
+    if (resHealth.ok && healthData.status === 'healthy' && healthData.persistence?.healthy) {
+      results.push({
+        name: '20. System Health & Storage Persistence Monitor',
+        passed: true,
+        details: `Server healthy, uptime=${healthData.uptimeSeconds}s, ordersStored=${healthData.persistence.ordersStored}, productsCatalogued=${healthData.persistence.productsCatalogued}.`,
+      });
+    } else {
+      throw new Error(`Health check returned unexpected body: ${JSON.stringify(healthData)}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '20. System Health & Storage Persistence Monitor', passed: false, error: err.message });
+  }
+
+  // -------------------------------------------------------------
+  // Test 21: Razorpay Webhook Event Processing & Idempotency
+  // -------------------------------------------------------------
+  try {
+    // Stage an order for webhook payment confirmation
+    const resOrder = await fetch(`${BASE_URL}/api/payment/razorpay-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer: {
+          fullName: 'Webhook Test Customer',
+          phone: '9877766655',
+          address: 'Villa 9, Bangalore',
+        },
+        items: [{ productId: 'chocolate-truffle-cake', weightKg: 0.5, price: 699, quantity: 1, isEggless: true }],
+      }),
+    });
+    const orderData = await resOrder.json();
+
+    // Trigger webhook event payment.captured
+    const webhookPayload = {
+      event: 'payment.captured',
+      payload: {
+        payment: {
+          entity: {
+            id: `pay_hook_${Date.now()}`,
+            order_id: orderData.razorpayOrderId,
+            amount: orderData.amountPaise,
+            status: 'captured',
+          },
+        },
+      },
+    };
+
+    const resWebhook1 = await fetch(`${BASE_URL}/api/payment/webhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(webhookPayload),
+    });
+    const hookData1 = await resWebhook1.json();
+
+    // Duplicate event (re-transmission / retry)
+    const resWebhook2 = await fetch(`${BASE_URL}/api/payment/webhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(webhookPayload),
+    });
+    const hookData2 = await resWebhook2.json();
+
+    if (resWebhook1.ok && hookData1.status === 'ok' && resWebhook2.ok && hookData2.note?.includes('already processed')) {
+      results.push({
+        name: '21. Razorpay Webhook Event & Idempotent Duplicate Handling',
+        passed: true,
+        details: `Processed payment.captured successfully; duplicate delivery safely acknowledged with idempotency guard.`,
+      });
+    } else {
+      throw new Error(`Webhook verification or duplicate handling failed: ${JSON.stringify({ hookData1, hookData2 })}`);
+    }
+  } catch (err: any) {
+    results.push({ name: '21. Razorpay Webhook Event & Idempotent Duplicate Handling', passed: false, error: err.message });
   }
 
   // -------------------------------------------------------------

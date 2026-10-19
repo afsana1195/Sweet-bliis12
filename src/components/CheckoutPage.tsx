@@ -487,64 +487,6 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     }
   };
 
-  // Final Order Submission to Server (For Cash on Delivery)
-  const finalizeOrderOnServer = async (methodLabel: string, txnReference?: string) => {
-    setIsSubmitting(true);
-    setErrorMessage('');
-
-    try {
-      const orderPayload = {
-        customer: {
-          fullName: formData.fullName.trim(),
-          phone: formData.phone.trim(),
-          email: formData.email.trim() || 'customer@sweetbliss.com',
-          address: formData.address.trim(),
-          pincode: formData.pincode.trim(),
-          city: formData.city.trim(),
-          landmark: formData.landmark.trim() || undefined,
-        },
-        items: cartItems.map((item) => ({
-          productId: item.product.id,
-          name: item.product.name,
-          weightKg: item.weightKg,
-          price: item.unitPrice,
-          quantity: item.quantity,
-          isEggless: item.isEggless,
-          cakeMessage: item.cakeMessage || undefined,
-          flavour: item.flavour || undefined,
-        })),
-        deliveryDate: formData.deliveryDate,
-        deliverySlot: formData.deliverySlot,
-        paymentMethod: methodLabel,
-        orderNotes: formData.orderNotes.trim() || undefined,
-        transactionId: txnReference,
-        promoDiscount: promoDiscount,
-        pointsDiscount: pointsDiscount,
-        pointsRedeemed: redeemPointsChecked ? maxRedeemablePoints : 0,
-      };
-
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderPayload),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to place order. Please try again.');
-      }
-
-      // Audio celebration
-      playPaymentSuccessChime();
-
-      onOrderCompleted(data.order);
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Order communication error. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   // Online Payment via Razorpay Gateway (Server Order Creation & Signature Verification)
   const initiateRazorpayPayment = async (selectedMethod: string) => {
     setIsSubmitting(true);
@@ -2031,372 +1973,93 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
       </div>
 
-      {/* ================= NPCI UPI PIN MODAL (AUTHENTIC EXPERIENCE) ================= */}
-      {upiPinModal.isOpen && (
+      {/* ================= RAZORPAY GATEWAY SANDBOX / TEST MODE MODAL ================= */}
+      {razorpaySandboxModal.isOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-5 shadow-2xl animate-in zoom-in-95 border border-stone-200">
-
-            {/* Simulated Live SMS Alert banner */}
-            {upiPinModal.incomingSmsAlert && (
-              <div className="p-2.5 bg-stone-900 text-stone-200 rounded-xl text-[11px] text-left flex items-start gap-2 animate-in slide-in-from-top">
-                <Smartphone className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div className="flex-1 font-mono">{upiPinModal.incomingSmsAlert}</div>
-              </div>
-            )}
-
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 text-center space-y-5 shadow-2xl animate-in zoom-in-95 border border-stone-200">
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-stone-600">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#881337]">
                 <Shield className="w-4 h-4 text-emerald-700" />
-                <span>NPCI UPI SECURE PLATFORM</span>
+                <span>RAZORPAY GATEWAY SIMULATION</span>
               </div>
               <button
-                onClick={() => setUpiPinModal((prev) => ({ ...prev, isOpen: false }))}
-                className="text-stone-400 hover:text-stone-700 p-1"
+                type="button"
+                onClick={() => setRazorpaySandboxModal((prev) => ({ ...prev, isOpen: false }))}
+                className="text-stone-400 hover:text-stone-700 p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div>
-              <div className="text-3xl font-black text-stone-900 mb-1">₹{total}</div>
-              <p className="text-xs font-bold text-stone-700">Sweet Bliss Artisan Bakery</p>
-              <p className="text-[11px] text-stone-400 font-mono">Debiting Linked Account •••• 4910</p>
-            </div>
-
-            {upiPinModal.step === 'enter_pin' && (
-              <div className="space-y-4">
-                <p className="text-xs font-bold text-stone-700">Enter 4-Digit UPI PIN</p>
-                <div className="flex justify-center gap-3">
-                  {[0, 1, 2, 3].map((idx) => (
-                    <div
-                      key={idx}
-                      className="w-11 h-11 rounded-xl border-2 border-stone-300 flex items-center justify-center text-xl font-bold font-mono bg-stone-50"
-                    >
-                      {upiPinModal.pin[idx] ? '•' : ''}
-                    </div>
-                  ))}
-                </div>
-
-                {upiPinModal.error && (
-                  <p className="text-xs text-rose-600 font-medium">{upiPinModal.error}</p>
-                )}
-
-                {/* Keypad */}
-                <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto pt-2">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => {
-                        if (upiPinModal.pin.length < 4) {
-                          setUpiPinModal((prev) => ({ ...prev, pin: prev.pin + num, error: '' }));
-                        }
-                      }}
-                      className="py-3 bg-stone-50 hover:bg-stone-100 rounded-xl text-lg font-bold text-stone-800 transition-colors cursor-pointer"
-                    >
-                      {num}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setUpiPinModal((prev) => ({ ...prev, pin: prev.pin.slice(0, -1) }))}
-                    className="py-3 bg-stone-100 hover:bg-stone-200 rounded-xl text-xs font-bold text-stone-700 transition-colors cursor-pointer"
-                  >
-                    DEL
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (upiPinModal.pin.length < 4) {
-                        setUpiPinModal((prev) => ({ ...prev, pin: prev.pin + '0', error: '' }));
-                      }
-                    }}
-                    className="py-3 bg-stone-50 hover:bg-stone-100 rounded-xl text-lg font-bold text-stone-800 transition-colors cursor-pointer"
-                  >
-                    0
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleUpiPinConfirm}
-                    className="py-3 bg-[#065f46] hover:bg-[#047857] text-white rounded-xl text-xs font-bold flex items-center justify-center shadow-xs cursor-pointer"
-                  >
-                    <Check className="w-5 h-5" />
-                  </button>
-                </div>
+            {/* Sandbox Notice */}
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-left text-xs text-amber-900 space-y-1">
+              <div className="font-bold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Payment Simulation Mode</span>
               </div>
-            )}
-
-            {upiPinModal.step === 'authorizing' && (
-              <div className="py-8 space-y-3">
-                <RefreshCw className="w-9 h-9 animate-spin text-[#065f46] mx-auto" />
-                <p className="text-xs font-bold text-stone-800">Contacting Bank NPCI Switch...</p>
-                <p className="text-[11px] text-stone-500">Securing payment authorization</p>
-              </div>
-            )}
-
-            {upiPinModal.step === 'success' && (
-              <div className="py-8 space-y-3 animate-in zoom-in-90">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <p className="text-base font-bold text-emerald-800">UPI Payment Authorized!</p>
-                <p className="text-[11px] text-stone-500 font-mono">Ref: UPI/{Date.now().toString().slice(-8)}</p>
-              </div>
-            )}
-
-          </div>
-        </div>
-      )}
-
-      {/* ================= 3D SECURE 2.0 CARD OTP MODAL (AUTHENTIC EXPERIENCE) ================= */}
-      {card3DSecureModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-5 shadow-2xl animate-in zoom-in-95 border border-stone-200">
-
-            {/* Simulated Live SMS Alert banner */}
-            {card3DSecureModal.incomingSmsAlert && (
-              <div className="p-2.5 bg-stone-900 text-stone-200 rounded-xl text-[11px] text-left flex items-start gap-2 animate-in slide-in-from-top">
-                <Smartphone className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div className="flex-1 font-mono">{card3DSecureModal.incomingSmsAlert}</div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="text-xs font-bold text-stone-600 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-blue-600" />
-                <span>{card3DSecureModal.bankName}</span>
-              </div>
-              <button
-                onClick={() => setCard3DSecureModal((prev) => ({ ...prev, isOpen: false }))}
-                className="text-stone-400 hover:text-stone-700 p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div>
-              <p className="text-xs text-stone-500">Merchant: Sweet Bliss Artisan Bakery</p>
-              <div className="text-2xl font-black text-stone-900 mt-1">₹{total}</div>
-              <p className="text-[11px] text-stone-400 font-mono mt-0.5">
-                Card ending in {cardNumber.replace(/\s/g, '').slice(-4) || '8492'}
+              <p className="text-[11px] text-amber-800">
+                Operating with secure server-side order staging. Live Razorpay keys can be supplied via environment variables for real transactions.
               </p>
             </div>
 
-            {card3DSecureModal.step === 'otp' && (
-              <div className="space-y-4">
-                <div className="text-left">
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Enter 6-Digit One Time Password (OTP)
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="Enter OTP"
-                    value={card3DSecureModal.otp}
-                    onChange={(e) => setCard3DSecureModal({ ...card3DSecureModal, otp: e.target.value.replace(/\D/g, '') })}
-                    className="w-full px-4 py-3 text-center rounded-xl border border-stone-200 font-mono tracking-widest text-lg font-bold focus:outline-none focus:border-[#065f46]"
-                  />
-                </div>
+            {/* Order Details */}
+            <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 text-left space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-stone-500">Order ID:</span>
+                <span className="font-mono font-bold text-stone-800">{razorpaySandboxModal.pendingOrderId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-stone-500">Gateway Order:</span>
+                <span className="font-mono text-stone-600 text-[11px]">{razorpaySandboxModal.razorpayOrderId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-stone-500">Payment Channel:</span>
+                <span className="font-bold text-stone-800">{razorpaySandboxModal.paymentCategory}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t border-stone-200 text-sm">
+                <span className="font-bold text-stone-700">Amount to Pay:</span>
+                <span className="font-black text-[#065f46]">₹{razorpaySandboxModal.amountInr}</span>
+              </div>
+            </div>
 
-                {/* Auto-fill from SMS Helper */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCard3DSecureModal((prev) => ({ ...prev, otp: prev.expectedOtp }))
-                  }
-                  className="w-full py-1.5 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold border border-emerald-200 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span>Auto-Fill OTP from Bank SMS</span>
-                  <Copy className="w-3 h-3" />
-                </button>
-
-                {card3DSecureModal.error && (
-                  <p className="text-xs text-rose-600 font-medium">{card3DSecureModal.error}</p>
-                )}
-
-                <div className="flex items-center justify-between text-xs text-stone-500 pt-1">
-                  <span>Resend in {card3DSecureModal.timer}s</span>
-                  <button
-                    type="button"
-                    disabled={card3DSecureModal.timer > 0}
-                    onClick={() => {
-                      const newOtp = String(Math.floor(100000 + Math.random() * 900000));
-                      setCard3DSecureModal((prev) => ({
-                        ...prev,
-                        timer: 45,
-                        expectedOtp: newOtp,
-                        incomingSmsAlert: `🔔 Bank SMS Alert: New OTP for Sweet Bliss is ${newOtp}.`,
-                      }));
-                    }}
-                    className="font-bold text-[#065f46] disabled:opacity-40 cursor-pointer"
-                  >
-                    Resend Code
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  disabled={card3DSecureModal.verifying}
-                  onClick={handleCard3DSecureSubmit}
-                  className="w-full py-3 rounded-xl bg-[#065f46] hover:bg-[#047857] text-white font-bold text-xs cursor-pointer flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
-                >
-                  {card3DSecureModal.verifying ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Validating with Card Network...</span>
-                    </>
-                  ) : (
-                    <span>Submit & Confirm Payment</span>
-                  )}
-                </button>
+            {razorpaySandboxModal.error && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{razorpaySandboxModal.error}</span>
               </div>
             )}
 
-            {card3DSecureModal.step === 'success' && (
-              <div className="py-8 space-y-3 animate-in zoom-in-90">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <p className="text-base font-bold text-emerald-800">Card Verified & Captured!</p>
-              </div>
-            )}
-
-          </div>
-        </div>
-      )}
-
-      {/* ================= NETBANKING SIMULATOR MODAL (AUTHENTIC EXPERIENCE) ================= */}
-      {netBankingModal.isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-5 shadow-2xl animate-in zoom-in-95 border border-stone-200">
-
-            {/* Simulated Live SMS Alert banner */}
-            {netBankingModal.incomingSmsAlert && (
-              <div className="p-2.5 bg-stone-900 text-stone-200 rounded-xl text-[11px] text-left flex items-start gap-2 animate-in slide-in-from-top">
-                <Smartphone className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <div className="flex-1 font-mono">{netBankingModal.incomingSmsAlert}</div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="flex items-center gap-2">
-                <div
-                  className="w-6 h-6 rounded-md flex items-center justify-center font-black text-[10px] text-white"
-                  style={{ backgroundColor: netBankingModal.bank.primaryColor }}
-                >
-                  {netBankingModal.bank.logoText}
-                </div>
-                <span className="text-xs font-bold text-stone-800">{netBankingModal.bank.name} Portal</span>
-              </div>
+            {/* Actions */}
+            <div className="space-y-2.5 pt-2">
               <button
-                onClick={() => setNetBankingModal((prev) => ({ ...prev, isOpen: false }))}
-                className="text-stone-400 hover:text-stone-700 p-1"
+                type="button"
+                disabled={razorpaySandboxModal.loading}
+                onClick={() => handleSandboxConfirm(false)}
+                className="w-full py-3 px-4 rounded-xl bg-[#065f46] hover:bg-[#047857] disabled:opacity-60 text-white font-bold text-xs cursor-pointer flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
               >
-                <X className="w-4 h-4" />
+                {razorpaySandboxModal.loading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Verifying Signature with Server...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Simulate Successful Payment (₹{razorpaySandboxModal.amountInr})</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                disabled={razorpaySandboxModal.loading}
+                onClick={() => handleSandboxConfirm(true)}
+                className="w-full py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 disabled:opacity-60 text-stone-700 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Simulate Payment Failure / Cancellation
               </button>
             </div>
-
-            <div>
-              <p className="text-xs text-stone-500">Retail NetBanking Gateway</p>
-              <div className="text-2xl font-black text-stone-900 mt-0.5">₹{total}</div>
-            </div>
-
-            {netBankingModal.step === 'login' && (
-              <div className="space-y-3 text-left">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Customer / User ID</label>
-                  <input
-                    type="text"
-                    placeholder="Enter NetBanking User ID"
-                    value={netBankingModal.userId}
-                    onChange={(e) => setNetBankingModal({ ...netBankingModal, userId: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs focus:outline-none focus:border-[#065f46]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">IPIN / Password</label>
-                  <input
-                    type="password"
-                    placeholder="Enter NetBanking Password"
-                    value={netBankingModal.password}
-                    onChange={(e) => setNetBankingModal({ ...netBankingModal, password: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs focus:outline-none focus:border-[#065f46]"
-                  />
-                </div>
-
-                {netBankingModal.error && (
-                  <p className="text-xs text-rose-600 font-medium">{netBankingModal.error}</p>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleNetBankingLogin}
-                  className="w-full py-3 rounded-xl bg-[#065f46] hover:bg-[#047857] text-white text-xs font-bold cursor-pointer transition-colors"
-                >
-                  Proceed to 2FA Authentication
-                </button>
-              </div>
-            )}
-
-            {netBankingModal.step === 'otp' && (
-              <div className="space-y-4 text-left">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Enter High-Security OTP sent to registered mobile
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="Enter 6-digit OTP"
-                    value={netBankingModal.otp}
-                    onChange={(e) => setNetBankingModal({ ...netBankingModal, otp: e.target.value.replace(/\D/g, '') })}
-                    className="w-full px-4 py-2.5 text-center rounded-xl border border-stone-200 font-mono tracking-widest text-base font-bold focus:outline-none focus:border-[#065f46]"
-                  />
-                </div>
-
-                {/* Auto-fill from SMS Helper */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setNetBankingModal((prev) => ({ ...prev, otp: prev.expectedOtp }))
-                  }
-                  className="w-full py-1.5 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold border border-emerald-200 cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span>Auto-Fill OTP from Bank SMS</span>
-                  <Copy className="w-3 h-3" />
-                </button>
-
-                {netBankingModal.error && (
-                  <p className="text-xs text-rose-600 font-medium">{netBankingModal.error}</p>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleNetBankingOtpSubmit}
-                  className="w-full py-3 rounded-xl bg-[#065f46] hover:bg-[#047857] text-white text-xs font-bold cursor-pointer transition-colors"
-                >
-                  Authorize Debit of ₹{total}
-                </button>
-              </div>
-            )}
-
-            {netBankingModal.step === 'authorizing' && (
-              <div className="py-8 space-y-3">
-                <RefreshCw className="w-9 h-9 animate-spin text-[#065f46] mx-auto" />
-                <p className="text-xs font-bold text-stone-800">Transferring to {netBankingModal.bank.name}...</p>
-                <p className="text-[11px] text-stone-500">Completing encrypted settlement</p>
-              </div>
-            )}
-
-            {netBankingModal.step === 'success' && (
-              <div className="py-8 space-y-3 animate-in zoom-in-90">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
-                  <CheckCircle2 className="w-8 h-8" />
-                </div>
-                <p className="text-base font-bold text-emerald-800">NetBanking Transfer Successful!</p>
-              </div>
-            )}
-
           </div>
         </div>
       )}

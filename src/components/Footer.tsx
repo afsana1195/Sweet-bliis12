@@ -16,7 +16,8 @@ import {
   Gift,
   Tag,
   Copy,
-  User
+  User,
+  ShieldCheck
 } from 'lucide-react';
 
 interface FooterProps {

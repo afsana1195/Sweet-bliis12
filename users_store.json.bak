@@ -1,0 +1,80 @@
+[
+  {
+    "id": "user_1792449784114_6031",
+    "name": "Aarav Patel",
+    "email": "audit_1792449784012@testbakery.com",
+    "phone": "9845784012",
+    "passwordHash": "$2b$10$SzyJxKZHN/7UAOO9Yd/Fk.MjJfPaXoMywdXbC3rgszxE9XozZpb6y",
+    "address": "12 Rosewood Villas",
+    "city": "Bangalore",
+    "pincode": "562162",
+    "memberTier": "Bronze",
+    "loyaltyPoints": 100,
+    "createdAt": "2026-10-19T22:43:04.114Z"
+  },
+  {
+    "id": "user_1792449436266_2876",
+    "name": "Aarav Patel",
+    "email": "audit_1792449436168@testbakery.com",
+    "phone": "9845436168",
+    "passwordHash": "$2b$10$l6Snhgc5d3hDyG1tmiVprOyvMHujIcKnl532wyEHhz5f2GIKf5Ecq",
+    "address": "12 Rosewood Villas",
+    "city": "Bangalore",
+    "pincode": "562162",
+    "memberTier": "Bronze",
+    "loyaltyPoints": 100,
+    "createdAt": "2026-10-19T22:37:16.266Z"
+  },
+  {
+    "id": "user_1792449150873_7864",
+    "name": "Aarav Patel",
+    "email": "audit_1792449150774@testbakery.com",
+    "phone": "9845150774",
+    "passwordHash": "$2b$10$7Kbr077Y817YOfTxElhCEetoXMJUneEBBadVtXlV1oKMTTmNgG2SG",
+    "address": "12 Rosewood Villas",
+    "city": "Bangalore",
+    "pincode": "562162",
+    "memberTier": "Bronze",
+    "loyaltyPoints": 100,
+    "createdAt": "2026-10-19T22:32:30.873Z"
+  },
+  {
+    "id": "user_1792449094441_2779",
+    "name": "Aarav Patel",
+    "email": "audit_1792449094343@testbakery.com",
+    "phone": "9845094343",
+    "passwordHash": "$2b$10$LAr3nYnNCK8flJBr2vxCnep7uO8C2y4ajO0jdTVwW3855Q.KewCtq",
+    "address": "12 Rosewood Villas",
+    "city": "Bangalore",
+    "pincode": "562162",
+    "memberTier": "Bronze",
+    "loyaltyPoints": 100,
+    "createdAt": "2026-10-19T22:31:34.441Z"
+  },
+  {
+    "id": "user_1792448892166_9581",
+    "name": "Aarav Patel",
+    "email": "audit_1792448892066@testbakery.com",
+    "phone": "9845012345",
+    "passwordHash": "$2b$10$cs3EQVzQy7rTlijqnG09i./qMDAcWkdufYhg3bK9aG9h1Y2syEGCy",
+    "address": "12 Rosewood Villas",
+    "city": "Bangalore",
+    "pincode": "562162",
+    "memberTier": "Bronze",
+    "loyaltyPoints": 100,
+    "createdAt": "2026-10-19T22:28:12.166Z"
+  },
+  {
+    "id": "user_demo_101",
+    "name": "Ananya Rao",
+    "email": "ananya@example.com",
+    "phone": "9876543210",
+    "passwordHash": "d3ad9315b7be5dd53b31a273b3b3aba5defe700808305aa16a3062b76658a791",
+    "address": "Villa 14, Surya City Phase 1, Chandapura",
+    "city": "Bangalore",
+    "pincode": "562162",
+    "memberTier": "VIP",
+    "loyaltyPoints": 1463,
+    "createdAt": "2026-10-15T22:26:28.754Z"
+  }
+]
