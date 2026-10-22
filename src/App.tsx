@@ -70,7 +70,10 @@ export default function App() {
     }
   });
 
-  // Initialize and handle direct product deep-link (?product=... or ?cake=...)
+  // Track Order Deep Link State
+  const [deepLinkOrderId, setDeepLinkOrderId] = useState<string>('');
+
+  // Initialize and handle direct product deep-link (?product=... or ?cake=...) & track deep-links
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -80,6 +83,15 @@ export default function App() {
         if (found) {
           setSelectedProduct(found);
         }
+      }
+
+      const trackId = params.get('track') || params.get('orderId') || params.get('order');
+      const hash = window.location.hash;
+      const hashTrack = hash.startsWith('#track-') ? hash.replace('#track-', '') : null;
+      const targetId = trackId || hashTrack;
+      if (targetId) {
+        setDeepLinkOrderId(targetId.trim().toUpperCase());
+        setCurrentRoute('track-order');
       }
     } catch (e) {
       console.warn('Deep link parsing error:', e);
@@ -562,8 +574,15 @@ export default function App() {
 
         {currentRoute === 'track-order' && (
           <TrackOrderPage
-            initialOrderId={placedOrder?.orderId}
+            initialOrderId={placedOrder?.orderId || deepLinkOrderId}
+            initialContact={
+              placedOrder?.customer?.phone ||
+              placedOrder?.customer?.email ||
+              currentUser?.phone ||
+              currentUser?.email
+            }
             onNavigate={(route) => setCurrentRoute(route)}
+            currentUser={currentUser}
           />
         )}
 
@@ -588,7 +607,7 @@ export default function App() {
       {/* Floating AI Chef Assistant Launcher */}
       <button
         onClick={() => setIsAiAssistantOpen(true)}
-        className="fixed bottom-6 right-6 z-40 bg-[#881337] hover:bg-[#9F1239] text-white p-3.5 sm:px-5 sm:py-3.5 rounded-full shadow-2xl flex items-center gap-2.5 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer border-2 border-rose-200"
+        className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-40 bg-[#881337] hover:bg-[#9F1239] text-white p-3.5 sm:px-5 sm:py-3.5 rounded-full shadow-2xl flex items-center gap-2.5 transition-all duration-300 hover:scale-105 active:scale-95 group cursor-pointer border-2 border-rose-200"
         aria-label="Chat with AI Cake Assistant"
       >
         <div className="w-7 h-7 rounded-full overflow-hidden bg-white shrink-0">

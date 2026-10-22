@@ -917,7 +917,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 {/* Email Address */}
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1.5">
-                    Email Address * (For Tax Invoice & Live GPS Tracking)
+                    Email Address * (For Tax Invoice & Order Tracking)
                   </label>
                   <input
                     type="email"
@@ -1993,13 +1993,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             </div>
 
             {/* Sandbox Notice */}
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-left text-xs text-amber-900 space-y-1">
-              <div className="font-bold flex items-center gap-1.5">
+            <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-left text-xs text-amber-950 space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-amber-900">
                 <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                <span>Payment Simulation Mode</span>
+                <span>[TEST / DEMO MODE] Razorpay Payment Simulation</span>
               </div>
-              <p className="text-[11px] text-amber-800">
-                Operating with secure server-side order staging. Live Razorpay keys can be supplied via environment variables for real transactions.
+              <p className="text-[11px] text-amber-900 leading-relaxed">
+                <strong>DEMO TRANSACTION:</strong> This is a secure development test sandbox. No real bank account or credit card will be charged. Real payments activate when live Razorpay API keys are configured in environment variables.
               </p>
             </div>
 

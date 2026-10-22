@@ -1091,7 +1091,7 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate, onMe
                   className="px-4 py-2.5 rounded-xl bg-rose-50 text-[#881337] border border-rose-200 hover:bg-rose-100 font-bold text-xs flex items-center gap-1.5 transition-colors"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Customer Live GPS View</span>
+                  <span>Customer Live Tracking View</span>
                 </a>
                 <button
                   onClick={() => setDetailedModalOrder(null)}

@@ -192,7 +192,7 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
             >
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <Clock className="w-4 h-4" />
-              <span>Live Delivery Tracking (Radar & Rider GPS)</span>
+              <span>Track Order & Delivery Progress</span>
             </button>
 
             <a

@@ -159,7 +159,7 @@ export function getCustomerOrderConfirmationWhatsAppUrl(order: {
   text += `*Scheduled Delivery:* ${order.deliveryDate} (${order.deliverySlot} Slot)\n`;
   text += `*Amount:* ₹${order.total} (Free Delivery)\n\n`;
   if (trackingUrl) {
-    text += `🛵 *Live GPS Tracking & Kitchen Progress:* \n${trackingUrl}\n\n`;
+    text += `🛵 *Live Order Tracking & Kitchen Progress:* \n${trackingUrl}\n\n`;
   }
   text += `For any immediate customizations, WhatsApp Chef Jyoti at +91 ${BUSINESS_CONFIG.phone}. Have a sweet celebration! 🍰✨`;
 

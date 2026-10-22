@@ -1494,23 +1494,60 @@ app.post('/api/orders', (req: Request, res: Response) => {
 app.get('/api/orders/track', (req: Request, res: Response) => {
   const { orderId, phoneOrEmail } = req.query;
 
-  if (!orderId || typeof orderId !== 'string') {
-    return res.status(400).json({ error: 'Order ID is required' });
+  if (!orderId || typeof orderId !== 'string' || !orderId.trim()) {
+    return res.status(400).json({
+      error: 'Please enter your Sweet Bliss Order ID (e.g. SB-2026-XXXX).',
+      code: 'ORDER_ID_REQUIRED',
+    });
   }
 
-  const cleanId = orderId.trim().toUpperCase();
-  const found = ordersStore.find((o) => o.orderId.toUpperCase() === cleanId);
+  const rawOrderId = orderId.trim();
+  const cleanId = rawOrderId.toUpperCase();
+
+  // Helpful detection if customer mistakenly typed phone or email into orderId field
+  const rawDigits = rawOrderId.replace(/\D/g, '');
+  const looksLikePhone = rawDigits.length === 10 && /^[6-9]\d{9}$/.test(rawDigits) && !rawOrderId.toUpperCase().startsWith('SB-');
+  const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(rawOrderId);
+
+  if (looksLikePhone || looksLikeEmail) {
+    return res.status(400).json({
+      error: looksLikePhone
+        ? `It appears you entered a mobile number ("${rawOrderId}") in the Order ID field. Please enter your Sweet Bliss Order ID (e.g. SB-2026-XXXX) in the Order ID field, and your phone number in the contact verification field.`
+        : `It appears you entered an email address ("${rawOrderId}") in the Order ID field. Please enter your Sweet Bliss Order ID (e.g. SB-2026-XXXX) in the Order ID field, and your email in the contact verification field.`,
+      code: 'MISPLACED_CONTACT_INFO',
+    });
+  }
+
+  let found = ordersStore.find((o) => o.orderId.toUpperCase() === cleanId);
+  if (!found) {
+    // Sync with disk in case of parallel writes or external additions
+    const fresh = loadOrders();
+    found = fresh.find((o) => o.orderId.toUpperCase() === cleanId);
+    if (found) {
+      ordersStore.length = 0;
+      ordersStore.push(...fresh);
+    }
+  }
 
   if (!found) {
-    return res.status(404).json({ error: 'No order found with the provided Order ID.' });
+    return res.status(404).json({
+      error: `No order found with the provided Order ID "${rawOrderId}". Please verify the Order ID from your confirmation message.`,
+      code: 'ORDER_NOT_FOUND',
+    });
   }
 
-  // Verify ownership: authenticated customer OR matching phone/email verification
+  // Check Admin session
+  const authHeader = req.headers.authorization;
+  const adminKeyHeader = (req.headers['x-admin-key'] || req.headers['x-admin-token']) as string;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : null;
+  const isAdmin = (token && adminSessions.has(token)) || (adminKeyHeader && adminSessions.has(adminKeyHeader));
+
+  // Verify ownership: authenticated customer OR matching phone/email verification OR admin
   const authUser = getAuthUser(req);
-  const isOwner = authUser && (
+  const isOwner = isAdmin || (authUser && (
     (authUser.email && authUser.email.toLowerCase() === (found.customer?.email || '').toLowerCase()) ||
     (authUser.phone && found.customer?.phone && authUser.phone.replace(/\D/g, '').slice(-10) === found.customer.phone.replace(/\D/g, '').slice(-10))
-  );
+  ));
 
   if (!isOwner) {
     if (!phoneOrEmail || typeof phoneOrEmail !== 'string' || !phoneOrEmail.trim()) {
@@ -1522,8 +1559,9 @@ app.get('/api/orders/track', (req: Request, res: Response) => {
 
     const input = phoneOrEmail.trim().toLowerCase();
     const phoneDigits = input.replace(/\D/g, '');
-    const phoneMatch = phoneDigits.length >= 10 && found.customer?.phone
-      ? found.customer.phone.replace(/\D/g, '').slice(-10) === phoneDigits.slice(-10)
+    const orderPhoneDigits = (found.customer?.phone || '').replace(/\D/g, '').slice(-10);
+    const phoneMatch = phoneDigits.length >= 10 && orderPhoneDigits
+      ? phoneDigits.slice(-10) === orderPhoneDigits
       : false;
     const emailMatch = found.customer?.email
       ? found.customer.email.toLowerCase().trim() === input

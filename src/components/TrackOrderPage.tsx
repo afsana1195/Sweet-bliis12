@@ -21,98 +21,62 @@ import {
   Navigation,
   MapPin,
   ShieldCheck,
-  Thermometer,
-  Compass,
-  Send,
   RefreshCw,
-  Play,
-  RotateCcw,
   Bike,
   Check,
-  Star,
-  X,
-  Volume2,
   Copy,
   ChevronDown,
   ChevronUp,
-  Layers,
   Crosshair,
   Maximize2,
-  Globe,
+  Lock,
   ExternalLink,
 } from 'lucide-react';
-import { PlacedOrder, PageRoute } from '../types.ts';
+import { PlacedOrder, PageRoute, CustomerUser } from '../types.ts';
 import { BUSINESS_CONFIG, PRODUCTS } from '../data/bakeryData.ts';
 
 interface TrackOrderPageProps {
   initialOrderId?: string;
+  initialContact?: string;
   onNavigate: (route: PageRoute) => void;
+  currentUser?: CustomerUser | null;
 }
-
-interface DeliveryPartner {
-  name: string;
-  phone: string;
-  rating: number;
-  totalDeliveries: number;
-  vehicle: string;
-  vehicleNumber: string;
-  avatar: string;
-  temperatureChecked: boolean;
-  maskVerified: boolean;
-}
-
-const DEFAULT_RIDER: DeliveryPartner = {
-  name: 'Rahul Sharma',
-  phone: '+91 98765 43210',
-  rating: 4.9,
-  totalDeliveries: 1480,
-  vehicle: 'Electric Eco-Scooter (Refrigerated Cake Carrier)',
-  vehicleNumber: 'KA 51 SB 2026',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  temperatureChecked: true,
-  maskVerified: true,
-};
 
 const TRACKING_STAGES = [
   {
     key: 'Order Placed',
     label: 'Order Placed',
     shortDesc: 'Order registered in kitchen queue',
-    detailedDesc: 'Our order desk accepted your celebration order and scheduled the pastry baking slot.',
+    detailedDesc: 'Our bakery order desk accepted your celebration order and scheduled the pastry baking slot.',
     icon: Clock,
-    etaMins: 45,
   },
   {
     key: 'Order Confirmed',
     label: 'Order Confirmed',
     shortDesc: 'Ingredients reserved & accepted',
-    detailedDesc: 'Master Chef has verified high-cocoa butter, fresh dairy cream, and eggless sponge batter.',
+    detailedDesc: 'Master Chef Jyoti has confirmed high-cocoa Belgian chocolate, fresh dairy cream, and eggless sponge batter.',
     icon: CheckCircle2,
-    etaMins: 40,
   },
   {
     key: 'Preparing Your Order',
     label: 'Baking & Frosting',
     shortDesc: 'Chef baking fresh sponge & piping icing',
-    detailedDesc: 'Warm sponge fresh from the oven! Rosettes are piped by hand with Belgian chocolate truffle.',
+    detailedDesc: 'Warm sponge fresh from the oven! Rosettes are piped by hand with artisan frosting and custom message.',
     icon: ChefHat,
-    etaMins: 28,
   },
   {
     key: 'Ready for Dispatch',
     label: 'Quality Checked & Packed',
     shortDesc: 'Chilled insulated box sealed',
-    detailedDesc: 'Plaque message inspected. Secured with food-grade shock absorbers and dry-ice cold packs.',
+    detailedDesc: 'Plaque message inspected. Secured in specialized food-grade cake carrier box with cold packs.',
     icon: Package,
-    etaMins: 20,
   },
   {
     key: 'Out for Delivery',
     label: 'Out for Delivery',
-    shortDesc: 'Rahul is on the way to your doorstep',
-    detailedDesc: 'Rahul picked up the cake carrier from Sweet Bliss Bakery. Live GPS tracking active on scooter.',
+    shortDesc: 'Dispatched to your doorstep',
+    detailedDesc: 'Cake carrier picked up from Sweet Bliss Bakery. Moving along the Bangalore delivery corridor.',
     icon: Bike,
-    etaMins: 12,
   },
   {
     key: 'Delivered',
@@ -120,122 +84,138 @@ const TRACKING_STAGES = [
     shortDesc: 'Celebration handed over!',
     detailedDesc: 'Delivered to your hands with love. Enjoy your sweet bliss celebration moment!',
     icon: Sparkles,
-    etaMins: 0,
   },
 ];
 
-interface ChatMessage {
-  id: string;
-  sender: 'user' | 'rider';
-  text: string;
-  time: string;
+// Sweet Bliss Patisserie by Jyoti Tanti, Chandapura Main Rd, Bangalore 562162
+const BAKERY_COORDS: [number, number] = [12.7932, 77.6975];
+
+// Map Bangalore delivery areas and pincodes to coordinates
+function getDestinationCoordsForOrder(order: PlacedOrder | null): [number, number] {
+  if (!order?.customer) return [12.8460, 77.6550];
+  const pin = (order.customer.pincode || '').trim();
+  const address = (order.customer.address || '').toLowerCase();
+  const landmark = (order.customer.landmark || '').toLowerCase();
+  const fullText = `${address} ${landmark}`;
+
+  if (pin === '562162' || fullText.includes('chandapura') || fullText.includes('anekal') || fullText.includes('surya city')) {
+    return [12.7980, 77.6960];
+  }
+  if (pin === '560100' || fullText.includes('electronic city') || fullText.includes('neeladri') || fullText.includes('wipro')) {
+    return [12.8452, 77.6602];
+  }
+  if (pin === '560068' || fullText.includes('bommanahalli') || fullText.includes('hosur road') || fullText.includes('garvebhavipalya')) {
+    return [12.9080, 77.6240];
+  }
+  if (pin === '560034' || pin === '560095' || fullText.includes('koramangala')) {
+    return [12.9352, 77.6245];
+  }
+  if (pin === '560102' || fullText.includes('hsr') || fullText.includes('sector 1') || fullText.includes('sector 2')) {
+    return [12.9121, 77.6446];
+  }
+  if (pin === '560076' || fullText.includes('bannerghatta') || fullText.includes('arekere') || fullText.includes('hulimavu')) {
+    return [12.8876, 77.5970];
+  }
+  if (pin === '560037' || pin === '560066' || fullText.includes('whitefield') || fullText.includes('marathahalli')) {
+    return [12.9698, 77.7500];
+  }
+
+  // Default within Bangalore delivery radius
+  return [12.8460, 77.6550];
 }
 
-// Real Bangalore Geographic Coordinates (Chandapura - Electronic City, Bangalore 562162):
-// Origin: Sweet Bliss Patisserie by Jyoti Tanti, Chandapura Main Rd, Bangalore 562162
-// Destination: Customer Residence, Electronic City Phase 2 / Chandapura, Bangalore
-const BAKERY_COORDS: [number, number] = [12.7932, 77.6975];
-const DESTINATION_COORDS: [number, number] = [12.8460, 77.6550];
+// Generate realistic route waypoints along Bangalore corridor
+function generateRouteWaypoints(
+  start: [number, number],
+  end: [number, number]
+): [number, number][] {
+  const [lat1, lon1] = start;
+  const [lat2, lon2] = end;
+  const count = 6;
+  const pts: [number, number][] = [];
 
-// Detailed Real Road Coordinates Waypoints across Bangalore Corridor
-const REAL_ROUTE_COORDS: [number, number][] = [
-  [12.7932, 77.6975], // Bakery (Chandapura Hub 562162)
-  [12.8050, 77.6910], // Surya City Junction
-  [12.8150, 77.6880], // Chandapura-Anekal Flyover
-  [12.8240, 77.6840], // Hebbagodi Main Road
-  [12.8350, 77.6800], // Bommasandra Industrial Hub
-  [12.8420, 77.6740], // Electronic City Toll Plaza
-  [12.8510, 77.6680], // Electronic City Phase 2 Elevated Corridor
-  [12.8550, 77.6620], // Tech Park Avenue
-  [12.8480, 77.6580], // Neeladri Road Cross
-  [12.8460, 77.6550], // Destination (Customer Doorstep, Bangalore)
-];
-
-const REAL_ROUTE_GOOGLE_COORDS = REAL_ROUTE_COORDS.map(([lat, lng]) => ({
-  lat,
-  lng,
-}));
-
-// Calculate cumulative segment distances for smooth interpolation along real road polyline
-function getInterpolatedPoint(progress: number): [number, number] {
-  const p = Math.max(0, Math.min(1, progress));
-  if (p === 0) return REAL_ROUTE_COORDS[0];
-  if (p === 1) return REAL_ROUTE_COORDS[REAL_ROUTE_COORDS.length - 1];
-
-  // Calculate cumulative distances
-  const distances: number[] = [0];
-  let totalDist = 0;
-  for (let i = 0; i < REAL_ROUTE_COORDS.length - 1; i++) {
-    const [lat1, lon1] = REAL_ROUTE_COORDS[i];
-    const [lat2, lon2] = REAL_ROUTE_COORDS[i + 1];
-    const d = Math.hypot(lat2 - lat1, lon2 - lon1);
-    totalDist += d;
-    distances.push(totalDist);
+  for (let i = 0; i <= count; i++) {
+    const t = i / count;
+    // Slight realistic road curvature
+    const curve = Math.sin(t * Math.PI) * 0.004;
+    const lat = lat1 + (lat2 - lat1) * t + curve;
+    const lon = lon1 + (lon2 - lon1) * t - curve * 0.5;
+    pts.push([lat, lon]);
   }
 
-  const targetDist = p * totalDist;
-  for (let i = 0; i < distances.length - 1; i++) {
-    if (targetDist >= distances[i] && targetDist <= distances[i + 1]) {
-      const segStart = distances[i];
-      const segEnd = distances[i + 1];
-      const segT = segEnd === segStart ? 0 : (targetDist - segStart) / (segEnd - segStart);
-      const [lat1, lon1] = REAL_ROUTE_COORDS[i];
-      const [lat2, lon2] = REAL_ROUTE_COORDS[i + 1];
-      return [
-        lat1 + (lat2 - lat1) * segT,
-        lon1 + (lon2 - lon1) * segT,
-      ];
-    }
-  }
+  return pts;
+}
 
-  return REAL_ROUTE_COORDS[REAL_ROUTE_COORDS.length - 1];
+// Map stage calculation from order status string
+function getStageIndex(status: string): number {
+  const s = (status || '').toLowerCase();
+  if (s.includes('cancel')) return -1;
+  if (s.includes('placed')) return 0;
+  if (s.includes('confirmed') || s.includes('received')) return 1;
+  if (s.includes('prepar') || s.includes('baking')) return 2;
+  if (s.includes('dispatch') || s.includes('ready')) return 3;
+  if (s.includes('out') || s.includes('transit')) return 4;
+  if (s.includes('deliver')) return 5;
+  return 1;
 }
 
 // Google Map Camera and View Controller Hook Component
 const GoogleMapViewController: React.FC<{
-  riderCoords: { lat: number; lng: number };
-  isSimulating: boolean;
+  bakeryCoords: { lat: number; lng: number };
+  destCoords: { lat: number; lng: number };
   recenterCount: number;
   fitRouteCount: number;
-}> = ({ riderCoords, isSimulating, recenterCount, fitRouteCount }) => {
+}> = ({ bakeryCoords, destCoords, recenterCount, fitRouteCount }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (!map) return;
-    if (isSimulating) {
-      map.panTo(riderCoords);
-    }
-  }, [map, riderCoords, isSimulating]);
-
-  useEffect(() => {
     if (!map || recenterCount === 0) return;
-    map.panTo(riderCoords);
-    map.setZoom(16);
-  }, [map, recenterCount, riderCoords]);
+    map.panTo(destCoords);
+    map.setZoom(14);
+  }, [map, recenterCount, destCoords]);
 
   useEffect(() => {
     if (!map || fitRouteCount === 0) return;
     if (typeof window !== 'undefined' && (window as any).google?.maps) {
       const bounds = new (window as any).google.maps.LatLngBounds();
-      bounds.extend({ lat: BAKERY_COORDS[0], lng: BAKERY_COORDS[1] });
-      bounds.extend({ lat: DESTINATION_COORDS[0], lng: DESTINATION_COORDS[1] });
+      bounds.extend(bakeryCoords);
+      bounds.extend(destCoords);
       map.fitBounds(bounds, 60);
     }
-  }, [map, fitRouteCount]);
+  }, [map, fitRouteCount, bakeryCoords, destCoords]);
 
   return null;
 };
 
-export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, onNavigate }) => {
+export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({
+  initialOrderId,
+  initialContact,
+  onNavigate,
+  currentUser,
+}) => {
   const [orderIdInput, setOrderIdInput] = useState(initialOrderId || '');
+  const [contactInput, setContactInput] = useState(
+    initialContact || currentUser?.phone || currentUser?.email || ''
+  );
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [trackedOrder, setTrackedOrder] = useState<PlacedOrder | null>(null);
+
+  // Recent orders stored in browser for quick access
+  const [recentOrders, setRecentOrders] = useState<PlacedOrder[]>(() => {
+    try {
+      const saved = localStorage.getItem('sb_orders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // Google Maps API Key & Provider State
   const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) || 'AIzaSyCUMcEreJEEQesdc6yVQkGEIyY7oysp3PE';
   const [mapProvider, setMapProvider] = useState<'google' | 'leaflet'>('google');
-  const [googleMapType, setGoogleMapType] = useState<'roadmap' | 'hybrid' | 'terrain'>('roadmap');
+  const [googleMapType, setGoogleMapType] = useState<'roadmap' | 'hybrid'>('roadmap');
 
   // Automatic seamless fallback to Leaflet OSM if Google Maps quota is reached or auth fails
   useEffect(() => {
@@ -246,165 +226,164 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
     return () => window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
   }, []);
 
-  // Camera triggers for Google Map
+  // Camera triggers
   const [recenterCount, setRecenterCount] = useState(0);
   const [fitRouteCount, setFitRouteCount] = useState(0);
-
-  // Simulation & Map Animation States
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [riderProgress, setRiderProgress] = useState(0.35); // 0 (Bakery) to 1 (Destination)
-  const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'detailed'>('streets');
   const [copiedId, setCopiedId] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(true);
 
-  // Rider Interaction Modals
-  const [showCallModal, setShowCallModal] = useState(false);
-  const [callState, setCallState] = useState<'ringing' | 'connected' | 'ended'>('ringing');
-  const [callSeconds, setCallSeconds] = useState(0);
-
-  const [showChatModal, setShowChatModal] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      sender: 'rider',
-      text: 'Namaste! I have securely placed your cake in our flat refrigerated box. Driving with extra caution.',
-      time: 'Just now',
-    },
-  ]);
-  const [inputChatText, setInputChatText] = useState('');
-  const [isRiderTyping, setIsRiderTyping] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
-
-  // Auto scroll chat to bottom
-  useEffect(() => {
-    if (showChatModal) {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatMessages, isRiderTyping, showChatModal]);
-
-  // Tipping State
-  const [selectedTip, setSelectedTip] = useState<number | null>(null);
-  const [tipSuccess, setTipSuccess] = useState(false);
-
-  // Collapse Details Card
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-
-  // Refs for timers and map
-  const timerRef = useRef<any>(null);
-  const callTimerRef = useRef<any>(null);
+  // Leaflet refs
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const riderMarkerRef = useRef<L.Marker | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const routePolylineRef = useRef<L.Polyline | null>(null);
 
-  // Fetch Order
-  const fetchOrder = async (id: string) => {
-    if (!id.trim()) return;
+  // Dynamic destination and waypoints calculated from verified order
+  const destCoords = getDestinationCoordsForOrder(trackedOrder);
+  const routeWaypoints = generateRouteWaypoints(BAKERY_COORDS, destCoords);
+  const googleRouteCoords = routeWaypoints.map(([lat, lng]) => ({ lat, lng }));
+
+  // Primary Fetch Order Function with Verification
+  const executeOrderLookup = async (idToSearch: string, contactToVerify: string) => {
+    if (loading) return;
+
+    const id = idToSearch.trim().toUpperCase();
+    const contact = contactToVerify.trim();
+
+    // 1. Validate Order ID
+    if (!id) {
+      setErrorMsg('Please enter your Sweet Bliss Order ID (e.g. SB-2026-970FFE).');
+      setSuccessMsg('');
+      return;
+    }
+
+    // 2. Detect if user accidentally typed phone or email into the Order ID input
+    const cleanDigits = id.replace(/\D/g, '');
+    const looksLikePhone = cleanDigits.length === 10 && /^[6-9]\d{9}$/.test(cleanDigits) && !id.startsWith('SB-');
+    const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(id);
+
+    if (looksLikePhone || looksLikeEmail) {
+      setContactInput(id);
+      setOrderIdInput('');
+      setErrorMsg(
+        looksLikePhone
+          ? `You entered a mobile number ("${id}") in the Order ID box. We moved it to the contact verification field below. Please enter your Order ID (e.g. SB-2026-970FFE) above.`
+          : `You entered an email ("${id}") in the Order ID box. We moved it to the contact verification field below. Please enter your Order ID (e.g. SB-2026-970FFE) above.`
+      );
+      setSuccessMsg('');
+      return;
+    }
+
+    // 3. Detect if user typed an Order ID into the Contact field
+    if (contact.toUpperCase().startsWith('SB-')) {
+      setOrderIdInput(contact.toUpperCase());
+      setContactInput('');
+      setErrorMsg('You entered an Order ID in the contact field. We moved it to the Order ID box. Please enter your registered 10-digit mobile number or email below.');
+      setSuccessMsg('');
+      return;
+    }
+
+    // 4. Validate Contact Verification Field
+    const token = localStorage.getItem('sb_auth_token');
+    const isCurrentUserMatching = currentUser && (
+      (currentUser.phone && currentUser.phone.replace(/\D/g, '').slice(-10) === contact.replace(/\D/g, '').slice(-10)) ||
+      (currentUser.email && currentUser.email.toLowerCase() === contact.toLowerCase())
+    );
+
+    if (!contact && !token && !isCurrentUserMatching) {
+      setErrorMsg('Please enter your registered 10-digit mobile number or email address to verify order ownership.');
+      setSuccessMsg('');
+      return;
+    }
+
     setLoading(true);
     setErrorMsg('');
+    setSuccessMsg('');
+
     try {
-      const res = await fetch(`/api/orders/track?orderId=${encodeURIComponent(id.trim().toUpperCase())}`);
-      const data = await res.json();
-      if (!res.ok || !data.success || !data.order) {
-        throw new Error(data.error || 'No matching order found. Please check your Order ID.');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
+
+      let url = `/api/orders/track?orderId=${encodeURIComponent(id)}`;
+      if (contact) {
+        url += `&phoneOrEmail=${encodeURIComponent(contact)}`;
+      }
+
+      const res = await fetch(url, { headers });
+      const data = await res.json();
+
+      if (!res.ok || !data.success || !data.order) {
+        setTrackedOrder(null);
+        if (res.status === 404) {
+          setErrorMsg(
+            data.error ||
+            `No order found with the provided Order ID "${id}". Please verify the Order ID from your booking confirmation or receipt.`
+          );
+        } else if (res.status === 403) {
+          setErrorMsg(
+            data.error ||
+            `The mobile number or email does not match our records for Order ID "${id}". Please enter the contact detail used during checkout.`
+          );
+        } else if (res.status === 400) {
+          setErrorMsg(data.error || 'Please provide both your Order ID and registered mobile number or email.');
+        } else {
+          setErrorMsg(data.error || 'Unable to load order tracking details. Please try again.');
+        }
+        return;
+      }
+
+      // Successful verified order retrieval
       setTrackedOrder(data.order);
-      syncRiderProgressFromStatus(data.order.status);
+      setOrderIdInput(data.order.orderId);
+      if (data.order.customer?.phone && !contactInput) {
+        setContactInput(data.order.customer.phone);
+      }
+      setSuccessMsg(`Order ${data.order.orderId} verified successfully.`);
+
+      // Sync recent orders store in browser if not already present
+      setRecentOrders((prev) => {
+        const exists = prev.some((o) => o.orderId === data.order.orderId);
+        if (!exists) {
+          const updated = [data.order, ...prev.slice(0, 4)];
+          try {
+            localStorage.setItem('sb_orders', JSON.stringify(updated));
+          } catch (e) {
+            console.warn('LocalStorage save failed:', e);
+          }
+          return updated;
+        }
+        return prev;
+      });
     } catch (err: any) {
-      setErrorMsg(err.message || 'Could not load order tracking.');
+      setTrackedOrder(null);
+      setErrorMsg(err.message || 'Network error while checking order tracking. Please check your internet connection and retry.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch Latest Order if no initialOrderId
-  useEffect(() => {
-    if (initialOrderId) {
-      fetchOrder(initialOrderId);
-    } else {
-      fetch('/api/orders/latest')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.success && data.order) {
-            setOrderIdInput(data.order.orderId);
-            setTrackedOrder(data.order);
-            syncRiderProgressFromStatus(data.order.status);
-          }
-        })
-        .catch(() => {});
+  // Form submit handler with event cancellation
+  const handleTrackSubmit = (e?: React.FormEvent | React.MouseEvent | React.KeyboardEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
-  }, [initialOrderId]);
-
-  // Stage calculation
-  const getStageIndex = (status: string) => {
-    const s = (status || '').toLowerCase();
-    if (s.includes('placed')) return 0;
-    if (s.includes('confirmed') || s.includes('received')) return 1;
-    if (s.includes('prepar') || s.includes('baking')) return 2;
-    if (s.includes('dispatch') || s.includes('ready')) return 3;
-    if (s.includes('out') || s.includes('transit')) return 4;
-    if (s.includes('deliver')) return 5;
-    return 1;
+    executeOrderLookup(orderIdInput, contactInput);
   };
+
+  // Mount logic: If initialOrderId exists from navigation/deep-link, auto-fetch
+  useEffect(() => {
+    if (initialOrderId && initialContact) {
+      executeOrderLookup(initialOrderId, initialContact);
+    }
+  }, [initialOrderId, initialContact]);
 
   const currentStageIdx = trackedOrder ? getStageIndex(trackedOrder.status) : 1;
+  const isCancelled = currentStageIdx === -1;
   const isDelivered = currentStageIdx === 5;
   const isOutForDelivery = currentStageIdx === 4;
-
-  const syncRiderProgressFromStatus = (status: string) => {
-    const idx = getStageIndex(status);
-    if (idx <= 1) setRiderProgress(0.05);
-    else if (idx === 2) setRiderProgress(0.18);
-    else if (idx === 3) setRiderProgress(0.32);
-    else if (idx === 4) setRiderProgress(0.65);
-    else if (idx === 5) setRiderProgress(1.0);
-  };
-
-  // Handle Advance Stage (Simulate progression like Zomato/Swiggy)
-  const handleAdvanceStage = async (targetStage?: string) => {
-    if (!trackedOrder) return;
-    try {
-      const res = await fetch(`/api/orders/${trackedOrder.orderId}/simulate-stage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetStage }),
-      });
-      const data = await res.json();
-      if (data.success && data.order) {
-        setTrackedOrder(data.order);
-        syncRiderProgressFromStatus(data.order.status);
-      }
-    } catch (e) {
-      console.error('Failed to advance stage:', e);
-    }
-  };
-
-  // Auto-play simulation loop
-  useEffect(() => {
-    if (!isSimulating || !trackedOrder) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
-
-    timerRef.current = setInterval(() => {
-      setRiderProgress((prev) => {
-        if (prev >= 0.98) {
-          handleAdvanceStage('Delivered');
-          setIsSimulating(false);
-          return 1.0;
-        }
-        const next = Math.min(1.0, prev + 0.05);
-        if (next > 0.4 && currentStageIdx < 4) {
-          handleAdvanceStage('Out for Delivery');
-        }
-        return next;
-      });
-    }, 1500);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isSimulating, trackedOrder, currentStageIdx]);
 
   // Leaflet map lifecycle for fallback mode
   useEffect(() => {
@@ -419,507 +398,90 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
     if (!mapContainerRef.current) return;
 
     if (!mapInstanceRef.current) {
-      const centerCoords = getInterpolatedPoint(riderProgress);
       const map = L.map(mapContainerRef.current, {
-        center: centerCoords,
-        zoom: 14,
+        center: [12.8200, 77.6750],
+        zoom: 13,
         zoomControl: false,
         attributionControl: false,
       });
 
       L.control.zoom({ position: 'topright' }).addTo(map);
 
-      const getTileUrl = (style: 'streets' | 'satellite' | 'detailed') => {
-        if (style === 'satellite') {
-          return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-        }
-        if (style === 'detailed') {
-          return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        }
-        return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-      };
-
-      const tileLayer = L.tileLayer(getTileUrl(mapStyle), {
+      const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
         subdomains: 'abcd',
       }).addTo(map);
       tileLayerRef.current = tileLayer;
 
-      L.polyline(REAL_ROUTE_COORDS, {
+      const poly = L.polyline(routeWaypoints, {
         color: '#BE123C',
-        weight: 8,
-        opacity: 0.3,
-        lineCap: 'round',
-        lineJoin: 'round',
-      }).addTo(map);
-
-      const routeLine = L.polyline(REAL_ROUTE_COORDS, {
-        color: '#881337',
-        weight: 4,
+        weight: 5,
+        opacity: 0.85,
         dashArray: '8, 8',
-        opacity: 0.95,
-        lineCap: 'round',
-        lineJoin: 'round',
       }).addTo(map);
-      routePolylineRef.current = routeLine;
+      routePolylineRef.current = poly;
 
       const bakeryIcon = L.divIcon({
         html: `
           <div class="flex flex-col items-center">
-            <div class="bg-white border-2 border-[#881337] shadow-lg px-2 py-0.5 rounded-lg text-[10px] font-bold text-[#881337] mb-0.5">
-              🎂 Sweet Bliss
+            <div class="bg-white border-2 border-[#881337] shadow-lg px-2 py-0.5 rounded-lg text-[10px] font-bold text-[#881337] whitespace-nowrap mb-1">
+              Sweet Bliss Bakery
             </div>
-            <div class="w-8 h-8 rounded-full bg-[#881337] text-white flex items-center justify-center shadow-md border-2 border-white text-xs">
+            <div class="w-8 h-8 rounded-full bg-[#881337] text-white flex items-center justify-center shadow-lg border-2 border-white text-xs">
               🧁
             </div>
           </div>
         `,
-        className: 'custom-bakery-pin',
-        iconSize: [100, 48],
-        iconAnchor: [50, 44],
+        className: 'custom-leaflet-icon',
+        iconSize: [120, 50],
+        iconAnchor: [60, 45],
       });
       L.marker(BAKERY_COORDS, { icon: bakeryIcon }).addTo(map);
 
       const destIcon = L.divIcon({
         html: `
           <div class="flex flex-col items-center">
-            <div class="bg-white border-2 border-emerald-600 shadow-lg px-2 py-0.5 rounded-lg text-[10px] font-bold text-emerald-800 mb-0.5">
-              🏠 Doorstep
+            <div class="bg-white border-2 border-emerald-600 shadow-lg px-2 py-0.5 rounded-lg text-[10px] font-bold text-emerald-800 whitespace-nowrap mb-1">
+              ${trackedOrder?.customer.fullName || 'Doorstep Destination'}
             </div>
-            <div class="relative">
-              <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-md border-2 border-white text-xs">
-                📍
-              </div>
-              <div class="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-60"></div>
+            <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg border-2 border-white text-xs">
+              📍
             </div>
           </div>
         `,
-        className: 'custom-dest-pin',
-        iconSize: [100, 48],
-        iconAnchor: [50, 44],
+        className: 'custom-leaflet-icon',
+        iconSize: [140, 50],
+        iconAnchor: [70, 45],
       });
-      L.marker(DESTINATION_COORDS, { icon: destIcon }).addTo(map);
-
-      const riderCoords = getInterpolatedPoint(riderProgress);
-      const riderIcon = L.divIcon({
-        html: `
-          <div class="flex flex-col items-center">
-            <div class="bg-stone-900 text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow-lg border border-white/40 mb-0.5 flex items-center gap-1">
-              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Rahul</span>
-            </div>
-            <div class="relative flex items-center justify-center">
-              <div class="w-10 h-10 rounded-full bg-[#BE123C] text-white flex items-center justify-center shadow-xl border-2 border-white text-sm">
-                🛵
-              </div>
-              <div class="absolute -inset-2 rounded-full border-2 border-rose-500/50 animate-ping pointer-events-none"></div>
-            </div>
-          </div>
-        `,
-        className: 'custom-rider-pin',
-        iconSize: [120, 60],
-        iconAnchor: [60, 52],
-      });
-
-      const riderMarker = L.marker(riderCoords, { icon: riderIcon, zIndexOffset: 1000 }).addTo(map);
-      riderMarkerRef.current = riderMarker;
+      L.marker(destCoords, { icon: destIcon }).addTo(map);
 
       mapInstanceRef.current = map;
-    }
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+    } else {
+      if (routePolylineRef.current) {
+        routePolylineRef.current.setLatLngs(routeWaypoints);
       }
-    };
-  }, [mapProvider]);
-
-  // Update Leaflet rider position
-  useEffect(() => {
-    if (mapProvider !== 'leaflet' || !riderMarkerRef.current || !mapInstanceRef.current) return;
-    const riderCoords = getInterpolatedPoint(riderProgress);
-    riderMarkerRef.current.setLatLng(riderCoords);
-    if (isSimulating) {
-      mapInstanceRef.current.panTo(riderCoords, { animate: true, duration: 1.2 });
     }
-  }, [riderProgress, isSimulating, mapProvider]);
+  }, [mapProvider, trackedOrder]);
 
-  // Center on Rider Action
-  const handleCenterOnRider = () => {
+  // Center On Customer Destination
+  const handleCenterOnDest = () => {
     if (mapProvider === 'google') {
       setRecenterCount((c) => c + 1);
     } else if (mapInstanceRef.current) {
-      const riderCoords = getInterpolatedPoint(riderProgress);
-      mapInstanceRef.current.setView(riderCoords, 16, { animate: true });
+      mapInstanceRef.current.setView(destCoords, 15, { animate: true });
     }
   };
 
-  // Fit Entire Route Action
+  // Fit Entire Delivery Route Action
   const handleFitRoute = () => {
     if (mapProvider === 'google') {
       setFitRouteCount((c) => c + 1);
     } else if (mapInstanceRef.current) {
-      mapInstanceRef.current.fitBounds(L.latLngBounds([BAKERY_COORDS, DESTINATION_COORDS]), {
+      mapInstanceRef.current.fitBounds(L.latLngBounds([BAKERY_COORDS, destCoords]), {
         padding: [60, 60],
         animate: true,
       });
     }
-  };
-
-  // Handle Call Simulator
-  useEffect(() => {
-    if (showCallModal) {
-      setCallState('ringing');
-      setCallSeconds(0);
-      const ringTimer = setTimeout(() => {
-        setCallState('connected');
-        callTimerRef.current = setInterval(() => {
-          setCallSeconds((s) => s + 1);
-        }, 1000);
-      }, 2500);
-
-      return () => {
-        clearTimeout(ringTimer);
-        if (callTimerRef.current) clearInterval(callTimerRef.current);
-      };
-    }
-  }, [showCallModal]);
-
-  const getRiderSmartReply = (rawText: string): string => {
-    const t = rawText.toLowerCase().trim();
-
-    // 1. हाय / Hi / Hey / Hello / नमस्ते
-    if (
-      t === 'hi' ||
-      t === 'hey' ||
-      t === 'hello' ||
-      t.includes('हाय') ||
-      t.includes('हेल्लो') ||
-      t.includes('हेलो') ||
-      t.includes('नमस्ते') ||
-      t.includes('namaste') ||
-      t.startsWith('hi ') ||
-      t.startsWith('hey ') ||
-      t.startsWith('hello ')
-    ) {
-      return 'हेलो! नमस्ते जी! मैं राहुल शर्मा (आपका डिलीवरी पार्टनर)। बताइए, मैं आपकी क्या मदद कर सकता हूँ? 😊';
-    }
-
-    // 2. गुड मॉर्निंग / Good morning / Suprabhat
-    if (
-      t.includes('गुड मॉर्निंग') ||
-      t.includes('good morning') ||
-      t.includes('suprabhat') ||
-      t.includes('सुप्रभात') ||
-      t === 'gm'
-    ) {
-      return 'गुड मॉर्निंग जी! ☀️ आपका दिन मंगलमय और मिठास भरा हो। आपका फ्रेश केक रास्ते में है और समय पर सुरक्षित पहुँच रहा हूँ।';
-    }
-
-    // 3. गुड नाइट / Good night / Shubh ratri
-    if (
-      t.includes('गुड नाइट') ||
-      t.includes('good night') ||
-      t.includes('goodnight') ||
-      t.includes('shubh ratri') ||
-      t.includes('शुभ रात्रि') ||
-      t === 'gn'
-    ) {
-      return 'शुभ रात्रि (Good Night) जी! 🌙 उम्मीद है आज की सेलिब्रेशन बहुत यादगार रहेगी। स्वीट ब्लिस से जुड़ने के लिए दिल से धन्यवाद!';
-    }
-
-    // 4. गुड आफ्टरनून / Good afternoon
-    if (t.includes('गुड आफ्टरनून') || t.includes('good afternoon') || t.includes('afternoon')) {
-      return 'गुड आफ्टरनून जी! 🌤️ आपका केक बिल्कुल सेफ और टेम्परेचर-कंट्रोल्ड बॉक्स में ठंडा व फ्रेश सुरक्षित है।';
-    }
-
-    // 5. गुड इवनिंग / Good evening
-    if (t.includes('गुड इवनिंग') || t.includes('good evening') || t.includes('evening')) {
-      return 'गुड इवनिंग जी! 🌆 शाम की पार्टी के लिए आपका स्वादिष्ट केक बस कुछ ही मिनटों में आपके दरवाज़े पर होगा।';
-    }
-
-    // 6. हाउ आर यू / How are you / Kaise ho
-    if (
-      t.includes('हाउ आर यू') ||
-      t.includes('how are you') ||
-      t.includes('kaise ho') ||
-      t.includes('कैसे हो') ||
-      t.includes('aap kaise ho') ||
-      t.includes('kaisa hai') ||
-      t.includes('how r u')
-    ) {
-      return 'मैं बिल्कुल बढ़िया और सेफ हूँ जी! आप कैसे हैं? आपकी सेवा के लिए हमेशा तैयार। 🛵';
-    }
-
-    // 7. फाइन / Fine / I am fine / Theek hu / Badhiya
-    if (
-      t === 'fine' ||
-      t.includes('फाइन') ||
-      t.includes('i am fine') ||
-      t.includes('im fine') ||
-      t.includes('theek hu') ||
-      t.includes('ठीक हूँ') ||
-      t.includes('badhiya') ||
-      t.includes('बढ़िया') ||
-      t.includes('all good') ||
-      t === 'good'
-    ) {
-      return 'यह जानकर बहुत खुशी हुई जी! 😊 अगर डिलीवरी के लिए कोई खास निर्देश हो तो बेझिझक बताएं।';
-    }
-
-    // 8. डिलीवरी टाइम / Delivery time / Kab tak / Kitna time / ETA
-    if (
-      t.includes('डिलीवरी टाइम') ||
-      t.includes('delivery time') ||
-      t.includes('kab tak') ||
-      t.includes('कब तक') ||
-      t.includes('kitna time') ||
-      t.includes('kitni der') ||
-      t.includes('eta') ||
-      t.includes('when will you reach') ||
-      t.includes('time lagega') ||
-      t.includes('kitna der') ||
-      t.includes('टाइम')
-    ) {
-      return 'मैं अभी आपके इलाके के काफी करीब हूँ! ट्रैफिक सामान्य है और अगले 10 से 15 मिनट में आपके पते पर पहुँच जाऊँगा। ⏱️';
-    }
-
-    // 9. लोकेशन / Location / Where are you / Kahan ho
-    if (
-      t.includes('लोकेशन') ||
-      t.includes('location') ||
-      t.includes('kahan ho') ||
-      t.includes('कहाँ हो') ||
-      t.includes('kidhar ho') ||
-      t.includes('where are you') ||
-      t.includes('live location') ||
-      t.includes('rastay')
-    ) {
-      return 'मैं अभी मैप पर दिखाए अनुसार आपके डिलीवरी रूट पर आगे बढ़ रहा हूँ। आप ऊपर लाइव जीपीएस मैप पर मेरी रियल-टाइम लोकेशन भी देख सकते हैं! 📍';
-    }
-
-    // 10. केक सेफ है / Cake safe / Sambhal ke lana
-    if (
-      t.includes('केक सेफ') ||
-      t.includes('cake safe') ||
-      t.includes('sambhal') ||
-      t.includes('संभाल') ||
-      t.includes('careful') ||
-      t.includes('toot') ||
-      t.includes('damage') ||
-      t.includes('horizontal') ||
-      t.includes('flat')
-    ) {
-      return 'जी हाँ, 100% बेफिक्र रहिए! 🎂 हमारे पास विशेष शॉक-प्रूफ और लेवल्ड केक बॉक्स है। मैं बेहद सावधानी और धीमी गति से ड्राइव कर रहा हूँ ताकि केक बिल्कुल परफेक्ट रहे।';
-    }
-
-    // 11. डोरबेल मत बजाना / Doorbell / Don't ring bell / Baby sleeping
-    if (
-      t.includes('डोरबेल') ||
-      t.includes('doorbell') ||
-      t.includes('bell') ||
-      t.includes('घंटी') ||
-      t.includes('ring') ||
-      t.includes('baby') ||
-      t.includes('sleeping') ||
-      t.includes('knock')
-    ) {
-      return 'बिल्कुल समझ गया जी! मैं डोरबेल बिल्कुल नहीं बजाऊँगा, दरवाज़े पर धीरे से नॉक करूँगा या मैसेज कर दूँगा। 🤫👍';
-    }
-
-    // 12. सिक्योरिटी गार्ड / Security guard / Guard ko de do
-    if (
-      t.includes('सिक्योरिटी') ||
-      t.includes('गार्ड') ||
-      t.includes('guard') ||
-      t.includes('security') ||
-      t.includes('watchman') ||
-      t.includes('gatekeeper') ||
-      t.includes('reception')
-    ) {
-      return 'जी बिल्कुल! मैं केक आपके अपार्टमेंट के मेन गेट / सिक्योरिटी डेस्क पर आपका नाम और फ्लैट नंबर लिखकर सुरक्षित सौंप दूँगा। 🛡️';
-    }
-
-    // 13. कॉल करो / Call me / Phone karo
-    if (
-      t.includes('कॉल करो') ||
-      t.includes('call me') ||
-      t.includes('phone') ||
-      t.includes('फोन') ||
-      t.includes('call') ||
-      t.includes('contact') ||
-      t.includes('baat karo')
-    ) {
-      return 'जी ज़रूर! जैसे ही मैं आपकी बिल्डिंग/गेट के पास पहुँचूँगा, तुरंत आपको कॉल कर लूँगा। आप चाहें तो ऊपर दिए कॉल बटन से भी सीधे बात कर सकते हैं। 📞';
-    }
-
-    // 14. ऑनलाइन पेमेंट / UPI QR / GPay / PhonePe / Cash
-    if (
-      t.includes('पेमेंट') ||
-      t.includes('payment') ||
-      t.includes('upi') ||
-      t.includes('qr') ||
-      t.includes('gpay') ||
-      t.includes('phonepe') ||
-      t.includes('paytm') ||
-      t.includes('cash') ||
-      t.includes('कैश')
-    ) {
-      return 'हाँजी, बिल्कुल! मेरे पास डिलीवरी पर कंपनी का UPI QR कोड उपलब्ध है। आप Google Pay, PhonePe, Paytm या कैश से आसानी से पेमेंट कर सकते हैं। 💳📲';
-    }
-
-    // 15. लेट क्यों / Late / Traffic / Jaldi aao
-    if (
-      t.includes('लेट') ||
-      t.includes('late') ||
-      t.includes('traffic') ||
-      t.includes('jam') ||
-      t.includes('jaldi') ||
-      t.includes('hurry') ||
-      t.includes('der')
-    ) {
-      return 'हल्का सा सिग्नल पर ट्रैफिक था जी, पर केक की नाजुक सजावट को सुरक्षित रखते हुए मैं तेज़ी से आ रहा हूँ, बस 5-8 मिनट में हाज़िर हूँ! 🛵💨';
-    }
-
-    // 16. एड्रेस / Landmark / Address / Flat No / Rasta
-    if (
-      t.includes('एड्रेस') ||
-      t.includes('address') ||
-      t.includes('landmark') ||
-      t.includes('flat') ||
-      t.includes('हाउस') ||
-      t.includes('house') ||
-      t.includes('रास्ता') ||
-      t.includes('गली')
-    ) {
-      return 'जी, अगर कोई खास लैंडमार्क, गली या गेट नंबर हो तो कृपया यहाँ बता दीजिए, मुझे आपके पते तक सीधे पहुँचने में आसानी होगी। 🏡';
-    }
-
-    // 17. फ्रेश है / Fresh cake / Eggless / Veg
-    if (
-      t.includes('फ्रेश') ||
-      t.includes('fresh') ||
-      t.includes('eggless') ||
-      t.includes('एगलेस') ||
-      t.includes('veg') ||
-      t.includes('ताज़ा') ||
-      t.includes('quality')
-    ) {
-      return 'जी हाँ, यह 100% ताज़ा और आज ही बेक किया हुआ सर्टिफाइड केक है। इसे हाइजीनिक तरीके से सील पैक किया गया है। ✨';
-    }
-
-    // 18. कैंडल और चाकू / Candle / Knife / Chaku / Mombatti
-    if (
-      t.includes('कैंडल') ||
-      t.includes('चाकू') ||
-      t.includes('candle') ||
-      t.includes('knife') ||
-      t.includes('chaku') ||
-      t.includes('mombatti') ||
-      t.includes('spoon') ||
-      t.includes('napkin')
-    ) {
-      return 'जी हाँ! केक बॉक्स के साथ बर्थडे कैंडल्स, केक नाइफ और नैपकिन्स का पाउच पहले से सुरक्षित लगा हुआ है। 🕯️🍴';
-    }
-
-    // 19. थैंक यू / Thank you / Thanks / Dhanyawad / Shukriya
-    if (
-      t.includes('थैंक यू') ||
-      t.includes('thank you') ||
-      t.includes('thanks') ||
-      t.includes('dhanyawad') ||
-      t.includes('धन्यवाद') ||
-      t.includes('shukriya') ||
-      t.includes('शुक्रिया') ||
-      t === 'ty' ||
-      t === 'thx'
-    ) {
-      return 'बहुत-बहुत धन्यवाद आपका! 🙏 आपके प्यारे शब्दों से हमारा दिन बन गया। आपकी सेलिब्रेशन बहुत शानदार रहे!';
-    }
-
-    // 20. ओके / OK / Theek hai / Alright / Done
-    if (
-      t === 'ok' ||
-      t === 'okay' ||
-      t === 'theek hai' ||
-      t === 'ठीक है' ||
-      t.includes('alright') ||
-      t.includes('done') ||
-      t.includes('got it') ||
-      t.includes('acha') ||
-      t === 'k'
-    ) {
-      return 'जी बहुत बढ़िया! बस कुछ ही पलों में आपसे मुलाक़ात होती है। Have a wonderful day! 🎉';
-    }
-
-    // 21. बाय / Bye / Alvida / See you / Take care
-    if (
-      t.includes('बाय') ||
-      t.includes('bye') ||
-      t.includes('alvida') ||
-      t.includes('अलविदा') ||
-      t.includes('see you') ||
-      t.includes('take care')
-    ) {
-      return 'अलविदा और बहुत-बहुत धन्यवाद! अपना ध्यान रखें और केक का हर बाइट भरपूर एन्जॉय करें! 🍰✨';
-    }
-
-    // 22. तुम कौन हो / Who are you / Rahul
-    if (
-      t.includes('तुम कौन हो') ||
-      t.includes('who are you') ||
-      t.includes('kaun ho') ||
-      t.includes('rahul') ||
-      t.includes('rider') ||
-      t.includes('driver')
-    ) {
-      return 'नमस्ते! मैं राहुल शर्मा हूँ, स्वीट ब्लिस बेकरी का डेडिकेटेड डिलीवरी पार्टनर (TVS Jupiter - DL 4S CY 9821)। आपका ऑर्डर पूरी सुरक्षा से ला रहा हूँ।';
-    }
-
-    // 23. सॉरी / Sorry
-    if (t.includes('sorry') || t.includes('सॉरी') || t.includes('maaf')) {
-      return 'अरे कोई बात नहीं जी! सब बिल्कुल ठीक है। बेझिझक जो भी ज़रूरत हो बताएं। 😊';
-    }
-
-    // 24. ऑर्डर नंबर / Order id
-    if (t.includes('order') || t.includes('ऑर्डर') || t.includes('id') || t.includes('नंबर')) {
-      return 'जी, आपका ऑर्डर मेरे सिस्टम में वेरिफाइड है और मैं आपके दिए गए पते की ओर पूरे ध्यान से बढ़ रहा हूँ।';
-    }
-
-    // 25. Default friendly confirmation
-    return 'जी समझ गया सर! मैंने आपका मैसेज नोट कर लिया है और पूरी सावधानी से आपके निर्देश का पालन करूँगा। 👍';
-  };
-
-  const handleSendChat = (presetText?: string) => {
-    const textToSend = presetText || inputChatText.trim();
-    if (!textToSend || isRiderTyping) return;
-
-    const newMsg: ChatMessage = {
-      id: Date.now().toString(),
-      sender: 'user',
-      text: textToSend,
-      time: 'Just now',
-    };
-
-    setChatMessages((prev) => [...prev, newMsg]);
-    if (!presetText) setInputChatText('');
-    setIsRiderTyping(true);
-
-    const reply = getRiderSmartReply(textToSend);
-
-    setTimeout(() => {
-      setIsRiderTyping(false);
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          sender: 'rider',
-          text: reply,
-          time: 'Just now',
-        },
-      ]);
-    }, 850);
   };
 
   const handleCopyId = () => {
@@ -929,123 +491,251 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  const currentStageInfo = TRACKING_STAGES[currentStageIdx];
-  const remainingMins = Math.max(0, Math.round(currentStageInfo.etaMins * (1 - riderProgress * 0.7)));
-  const currentRiderPos = getInterpolatedPoint(riderProgress);
-  const currentRiderLatLng = { lat: currentRiderPos[0], lng: currentRiderPos[1] };
+  const currentStageInfo = currentStageIdx >= 0 ? TRACKING_STAGES[currentStageIdx] : null;
 
   return (
-    <div className="bg-[#FFF9F9] min-h-screen py-6 sm:py-10 px-4 sm:px-6">
+    <div className="bg-[#FFF9F9] min-h-screen pt-6 pb-28 sm:py-10 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* ================= TOP SEARCH & APP HEADER ================= */}
-        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-rose-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-              <span className="text-xs uppercase font-extrabold tracking-wider text-[#881337]">
-                Live Order & GPS Tracking
-              </span>
-              <span className="px-2 py-0.5 rounded-full bg-rose-100 text-[#881337] text-[10px] font-bold">
-                Zomato & Swiggy Style
-              </span>
+        <div className="bg-white rounded-3xl p-5 sm:p-6 border border-rose-100 shadow-sm space-y-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs uppercase font-extrabold tracking-wider text-[#881337]">
+                  Order Fulfillment & Delivery Tracker
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-rose-100 text-[#881337] text-[10px] font-bold">
+                  Sweet Bliss Kitchen
+                </span>
+              </div>
+              <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900">
+                Track Your Celebration Cake
+              </h1>
+              <p className="text-stone-500 text-xs sm:text-sm mt-0.5">
+                Real-time kitchen milestones, scheduled delivery time, and verified route progress.
+              </p>
             </div>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900">
-              Track Your Celebration Cake
-            </h1>
-            <p className="text-stone-500 text-xs sm:text-sm mt-0.5">
-              Real-time Google Maps telemetry, kitchen baking milestones, and delivery partner GPS radar.
-            </p>
+
+            {currentUser && (
+              <div className="bg-rose-50/70 border border-rose-200/60 rounded-2xl px-3.5 py-2 flex items-center gap-2.5 text-xs text-rose-900 shrink-0">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <span className="font-bold block">Verified Customer</span>
+                  <span className="text-[11px] text-stone-600">
+                    {currentUser.name} • {currentUser.phone || currentUser.email}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Order Search Form */}
+          {/* TWO-FIELD SECURE SEARCH FORM */}
           <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              fetchOrder(orderIdInput);
-            }}
-            className="flex items-center gap-2 w-full md:w-auto"
+            onSubmit={handleTrackSubmit}
+            noValidate
+            className="pt-2 border-t border-rose-100/70 flex flex-col md:flex-row items-stretch md:items-end gap-3"
           >
-            <div className="relative flex-1 sm:w-72">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Enter Order ID (e.g. SB-2026-XXXX)"
-                value={orderIdInput}
-                onChange={(e) => setOrderIdInput(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#881337] focus:border-transparent bg-stone-50/50"
-              />
+            {/* Field 1: Order ID */}
+            <div className="flex-1 space-y-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-700 flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-[#881337]" />
+                <span>Sweet Bliss Order ID</span>
+              </label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="e.g. SB-2026-970FFE"
+                  value={orderIdInput}
+                  onChange={(e) => {
+                    setOrderIdInput(e.target.value);
+                    if (errorMsg) setErrorMsg('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleTrackSubmit(e);
+                  }}
+                  disabled={loading}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-[#881337] focus:border-transparent bg-stone-50/50 disabled:opacity-60"
+                />
+              </div>
             </div>
+
+            {/* Field 2: Registered Phone or Email */}
+            <div className="flex-1 space-y-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-stone-700 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Registered Mobile or Email</span>
+                </span>
+                <span className="text-[10px] text-stone-400 font-normal lowercase">for security verification</span>
+              </label>
+              <div className="relative">
+                <Phone className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="e.g. 6297201943 or email@example.com"
+                  value={contactInput}
+                  onChange={(e) => {
+                    setContactInput(e.target.value);
+                    if (errorMsg) setErrorMsg('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleTrackSubmit(e);
+                  }}
+                  disabled={loading}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#881337] focus:border-transparent bg-stone-50/50 disabled:opacity-60"
+                />
+              </div>
+            </div>
+
+            {/* Submit Track Button */}
             <button
               type="submit"
+              onClick={handleTrackSubmit}
               disabled={loading}
-              className="px-5 py-2.5 bg-[#881337] hover:bg-[#9F1239] text-white font-semibold text-sm rounded-xl transition-all shadow-sm hover:shadow-md cursor-pointer disabled:opacity-50 shrink-0 flex items-center gap-2"
+              className="px-6 py-2.5 bg-[#881337] hover:bg-[#9F1239] active:bg-[#70102e] text-white font-semibold text-sm rounded-xl transition-all shadow-sm hover:shadow-md cursor-pointer disabled:opacity-50 shrink-0 flex items-center justify-center gap-2 h-[42px]"
             >
               {loading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Searching...</span>
+                  <span>Verifying...</span>
                 </>
               ) : (
-                <span>Track</span>
+                <>
+                  <Search className="w-4 h-4" />
+                  <span>Track Order</span>
+                </>
               )}
             </button>
           </form>
+
+          {/* Recent Orders Shortcut Chips if stored in browser */}
+          <div className="pt-1">
+            {recentOrders.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-stone-400 text-[11px] font-medium">Recent Orders:</span>
+                {recentOrders.slice(0, 4).map((ro) => (
+                  <button
+                    key={ro.orderId}
+                    type="button"
+                    onClick={() => {
+                      setOrderIdInput(ro.orderId);
+                      setErrorMsg('');
+                      setSuccessMsg('');
+                      const contactToUse =
+                        contactInput.trim() ||
+                        ro.customer?.phone ||
+                        ro.customer?.email ||
+                        currentUser?.phone ||
+                        currentUser?.email ||
+                        '';
+                      if (contactToUse) {
+                        setContactInput(contactToUse);
+                        executeOrderLookup(ro.orderId, contactToUse);
+                      } else {
+                        setErrorMsg(`Order ID ${ro.orderId} selected. Please enter your registered 10-digit mobile number or email below to verify.`);
+                      }
+                    }}
+                    className={`px-3 py-1 rounded-full text-[11px] font-mono border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      trackedOrder?.orderId === ro.orderId
+                        ? 'bg-[#881337] text-white border-[#881337]'
+                        : 'bg-stone-50 hover:bg-rose-50 border-stone-200 text-stone-700'
+                    }`}
+                  >
+                    <span>{ro.orderId}</span>
+                    <span className="text-[10px] opacity-75">
+                      ({ro.items[0]?.name || 'Cake'})
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-stone-400">
+                No recent orders found on this device. Enter your Order ID and registered phone or email above.
+              </p>
+            )}
+          </div>
+
+          {/* Privacy Footnote */}
+          <div className="text-[11px] text-stone-500 flex items-center gap-1.5 pt-1">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span>Customer Privacy Protected: Doorstep address and live status are only visible after verification.</span>
+          </div>
         </div>
 
         {/* Error Alert */}
         {errorMsg && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>{errorMsg}</span>
+          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-sm flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold">{errorMsg}</p>
+                <p className="text-xs text-rose-700 mt-0.5">
+                  Need assistance? WhatsApp Master Chef Jyoti at{' '}
+                  <a
+                    href={`https://wa.me/${BUSINESS_CONFIG.whatsappNumber}?text=${encodeURIComponent(
+                      `Hi Chef Jyoti, I need help tracking my order: ${orderIdInput || 'Cake Order'}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline font-bold"
+                  >
+                    +91 {BUSINESS_CONFIG.phone}
+                  </a>
+                </p>
+              </div>
             </div>
             <button
-              onClick={() => fetchOrder(orderIdInput)}
-              className="text-xs font-bold text-[#881337] hover:underline cursor-pointer"
+              type="button"
+              onClick={handleTrackSubmit}
+              className="text-xs font-bold text-[#881337] hover:underline cursor-pointer shrink-0"
             >
-              Try Again
+              Retry
             </button>
+          </div>
+        )}
+
+        {/* Success Alert */}
+        {successMsg && !errorMsg && trackedOrder && (
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{successMsg}</span>
           </div>
         )}
 
         {/* If No order is loaded */}
         {!trackedOrder && !loading && (
-          <div className="bg-white rounded-3xl p-12 text-center border border-rose-100 shadow-sm max-w-xl mx-auto space-y-4">
-            <div className="w-16 h-16 rounded-full bg-rose-50 text-[#881337] flex items-center justify-center mx-auto">
+          <div className="bg-white rounded-3xl p-10 sm:p-14 text-center border border-rose-100 shadow-sm max-w-xl mx-auto space-y-4">
+            <div className="w-16 h-16 rounded-full bg-rose-50 text-[#881337] flex items-center justify-center mx-auto shadow-2xs">
               <Package className="w-8 h-8" />
             </div>
-            <h3 className="font-serif text-xl font-bold text-stone-900">No Active Order Selected</h3>
-            <p className="text-stone-500 text-sm max-w-md mx-auto">
-              Enter an Order ID above to see live GPS tracking or explore freshly baked signature cakes.
+            <h3 className="font-serif text-xl sm:text-2xl font-bold text-stone-900">
+              No Active Order Selected
+            </h3>
+            <p className="text-stone-500 text-xs sm:text-sm max-w-md mx-auto leading-relaxed">
+              Enter your Order ID (from your booking confirmation message or WhatsApp) and registered contact detail above to view real-time bakery status.
             </p>
             <div className="pt-2 flex flex-wrap justify-center gap-3">
               <button
+                type="button"
                 onClick={() => onNavigate('shop')}
-                className="px-6 py-2.5 rounded-xl bg-[#881337] text-white text-sm font-semibold hover:bg-[#9F1239] transition-all cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-[#881337] text-white text-xs sm:text-sm font-semibold hover:bg-[#9F1239] transition-all cursor-pointer shadow-sm"
               >
                 Browse Cake Menu
               </button>
               <button
-                onClick={() => {
-                  fetch('/api/orders/latest')
-                    .then((r) => r.json())
-                    .then((d) => {
-                      if (d.success && d.order) {
-                        setOrderIdInput(d.order.orderId);
-                        setTrackedOrder(d.order);
-                        syncRiderProgressFromStatus(d.order.status);
-                      }
-                    });
-                }}
-                className="px-6 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-sm font-semibold transition-all cursor-pointer"
+                type="button"
+                onClick={() => onNavigate('contact')}
+                className="px-6 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs sm:text-sm font-semibold transition-all cursor-pointer"
               >
-                Load Sample Order
+                Contact Bakery Desk
               </button>
             </div>
           </div>
         )}
 
-        {/* MAIN TRACKING INTERFACE */}
+        {/* MAIN TRACKING INTERFACE (When genuine order is verified) */}
         {trackedOrder && (
           <div className="space-y-6">
             {/* ================= 1. DYNAMIC ETA HERO CARD ================= */}
@@ -1054,85 +744,55 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
 
               <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold tracking-wide uppercase">
-                      {isDelivered
+                      {isCancelled
+                        ? 'Order Cancelled'
+                        : isDelivered
                         ? 'Delivered with Joy 🎉'
-                        : `Estimated Delivery in ~${remainingMins} mins`}
+                        : `Scheduled Delivery: ${trackedOrder.deliveryDate} (${trackedOrder.deliverySlot.toUpperCase()} Slot)`}
                     </span>
-                    <span className="text-[11px] text-rose-100 flex items-center gap-1 font-medium">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      Live Route Active
+                    <span className="text-[11px] text-rose-100 flex items-center gap-1 font-medium bg-black/20 px-2.5 py-0.5 rounded-full">
+                      <span className={`w-2 h-2 rounded-full ${isCancelled ? 'bg-rose-400' : 'bg-emerald-400 animate-pulse'}`} />
+                      Status: {trackedOrder.status}
                     </span>
                   </div>
 
                   <h2 className="font-serif text-2xl sm:text-3xl font-bold tracking-tight">
-                    {isDelivered
+                    {isCancelled
+                      ? 'Celebration Order Cancelled'
+                      : isDelivered
                       ? 'Cake Delivered to Doorstep! 🎂'
                       : isOutForDelivery
-                      ? 'Rahul is zooming on scooter towards your address! 🛵'
+                      ? 'Out for Delivery to Your Doorstep! 🛵'
                       : currentStageIdx === 3
-                      ? 'Cake sealed in chilled box & awaiting rider ❄️'
+                      ? 'Cake inspected & sealed in chilled carrier box ❄️'
                       : currentStageIdx === 2
-                      ? 'Pastry Chef is whipping cream & decorating 🎂'
-                      : 'Sweet Bliss accepted your order! 🎉'}
+                      ? 'Executive Pastry Chef is baking fresh & decorating 🎂'
+                      : 'Sweet Bliss kitchen accepted your celebration order! 🎉'}
                   </h2>
 
                   <p className="text-xs sm:text-sm text-rose-100/90 max-w-xl leading-relaxed">
-                    {currentStageInfo.detailedDesc}
+                    {isCancelled
+                      ? 'This celebration order was marked as cancelled. For questions, adjustments, or refund inquiries, please message Chef Jyoti via WhatsApp or call our desk.'
+                      : currentStageInfo?.detailedDesc}
                   </p>
                 </div>
 
-                {/* Simulation Control Badge (Zomato/Swiggy Live Demonstration) */}
-                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 shrink-0 flex flex-col sm:items-end gap-2 text-xs">
-                  <div className="flex items-center gap-2 text-[11px] text-rose-200">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Live Journey Controller</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsSimulating(!isSimulating)}
-                      className="px-3 py-1.5 rounded-xl bg-white text-[#881337] font-bold text-xs flex items-center gap-1.5 shadow-xs hover:bg-rose-50 transition-colors cursor-pointer"
-                    >
-                      {isSimulating ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>Simulating...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          <span>Auto-Play Live</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => handleAdvanceStage()}
-                      className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-semibold text-xs transition-colors cursor-pointer"
-                    >
-                      Step Stage ⏩
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        handleAdvanceStage('Order Confirmed');
-                        setRiderProgress(0.08);
-                      }}
-                      title="Reset simulation to initial status"
-                      className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 shrink-0 flex flex-col items-start md:items-end gap-1.5 text-xs">
+                  <span className="text-rose-200 text-[11px]">Order Reference</span>
+                  <span className="font-mono font-bold text-base tracking-wider text-white">
+                    {trackedOrder.orderId}
+                  </span>
+                  <span className="text-[10px] text-emerald-300 font-medium">
+                    Verified Customer: {trackedOrder.customer.fullName}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* ================= 2. OFFICIAL GOOGLE MAPS GPS TRACKER ================= */}
+            {/* ================= 2. DELIVERY ROUTE & CORRIDOR MAP ================= */}
             <div className="bg-white rounded-3xl border border-rose-100 shadow-md overflow-hidden">
-              {/* Map Controls Header with API Key Indicator */}
               <div className="p-4 sm:p-5 border-b border-rose-100 flex flex-wrap items-center justify-between gap-3 bg-stone-50/70">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-rose-100 text-[#881337] flex items-center justify-center font-bold">
@@ -1141,30 +801,32 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="font-bold text-stone-900 text-xs sm:text-sm">
-                        Live Delivery Tracking Radar
+                        Bakery to Doorstep Delivery Route & Service Corridor
                       </h3>
                       <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Live GPS Active
+                        Bangalore Corridor
                       </span>
                     </div>
                     <p className="text-[11px] text-stone-500">
-                      From: <strong>Sweet Bliss Bakery (Somajiguda)</strong> → To: <strong>{trackedOrder.customer.address}, {trackedOrder.customer.city}</strong>
+                      From: <strong>Sweet Bliss Bakery (Chandapura, Bangalore 562162)</strong> → To:{' '}
+                      <strong>
+                        {trackedOrder.customer.address}, {trackedOrder.customer.city} - {trackedOrder.customer.pincode}
+                      </strong>
                     </p>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {/* Provider & Style Switcher */}
                   <div className="flex bg-white rounded-xl border border-stone-200 p-0.5 shadow-2xs">
                     <button
+                      type="button"
                       onClick={() => {
                         setMapProvider('google');
                         setGoogleMapType('roadmap');
-                        setMapStyle('streets');
                       }}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${
-                        (mapProvider === 'google' && googleMapType === 'roadmap') || (mapProvider === 'leaflet' && mapStyle === 'streets')
+                        mapProvider === 'google' && googleMapType === 'roadmap'
                           ? 'bg-[#881337] text-white'
                           : 'text-stone-600 hover:text-stone-900'
                       }`}
@@ -1172,13 +834,13 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                       🗺️ Road
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         setMapProvider('google');
                         setGoogleMapType('hybrid');
-                        setMapStyle('satellite');
                       }}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${
-                        (mapProvider === 'google' && googleMapType === 'hybrid') || (mapProvider === 'leaflet' && mapStyle === 'satellite')
+                        mapProvider === 'google' && googleMapType === 'hybrid'
                           ? 'bg-[#881337] text-white'
                           : 'text-stone-600 hover:text-stone-900'
                       }`}
@@ -1186,12 +848,12 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                       🛰️ Satellite
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         setMapProvider('leaflet');
-                        setMapStyle('detailed');
                       }}
                       className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer ${
-                        mapProvider === 'leaflet' && mapStyle === 'detailed'
+                        mapProvider === 'leaflet'
                           ? 'bg-[#881337] text-white'
                           : 'text-stone-600 hover:text-stone-900'
                       }`}
@@ -1200,16 +862,17 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                     </button>
                   </div>
 
-                  {/* Camera Recenter Buttons */}
                   <button
-                    onClick={handleCenterOnRider}
+                    type="button"
+                    onClick={handleCenterOnDest}
                     className="p-2 rounded-xl bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 hover:text-[#881337] shadow-2xs transition-colors cursor-pointer"
-                    title="Center on Delivery Scooter"
+                    title="Center on Destination"
                   >
                     <Crosshair className="w-4 h-4 text-[#881337]" />
                   </button>
 
                   <button
+                    type="button"
                     onClick={handleFitRoute}
                     className="p-2 rounded-xl bg-white border border-stone-200 text-stone-700 hover:bg-stone-50 hover:text-[#881337] shadow-2xs transition-colors cursor-pointer"
                     title="Show Full Route"
@@ -1220,60 +883,58 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
               </div>
 
               {/* Map Rendering Container */}
-              <div className="relative w-full h-[380px] sm:h-[450px]">
+              <div className="relative w-full h-[360px] sm:h-[420px]">
                 {mapProvider === 'google' ? (
                   <APIProvider apiKey={apiKey} libraries={['marker', 'routes', 'geometry']}>
                     <GoogleMap
                       mapId="DEMO_MAP_ID"
                       internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
-                      defaultCenter={{ lat: 17.4265, lng: 78.4350 }}
-                      defaultZoom={14}
+                      defaultCenter={{ lat: 12.8200, lng: 77.6750 }}
+                      defaultZoom={13}
                       mapTypeId={googleMapType}
                       gestureHandling="greedy"
                       disableDefaultUI={false}
                       className="w-full h-full"
                     >
-                      {/* Controller for interactive camera movement */}
                       <GoogleMapViewController
-                        riderCoords={currentRiderLatLng}
-                        isSimulating={isSimulating}
+                        bakeryCoords={{ lat: BAKERY_COORDS[0], lng: BAKERY_COORDS[1] }}
+                        destCoords={{ lat: destCoords[0], lng: destCoords[1] }}
                         recenterCount={recenterCount}
                         fitRouteCount={fitRouteCount}
                       />
 
-                      {/* Route Polyline Glow & Core Line */}
                       <Polyline
-                        path={REAL_ROUTE_GOOGLE_COORDS}
+                        path={googleRouteCoords}
                         strokeColor="#BE123C"
-                        strokeWeight={9}
+                        strokeWeight={8}
                         strokeOpacity={0.3}
                       />
                       <Polyline
-                        path={REAL_ROUTE_GOOGLE_COORDS}
+                        path={googleRouteCoords}
                         strokeColor="#881337"
                         strokeWeight={4}
                         strokeOpacity={0.9}
                       />
 
-                      {/* 1. Bakery Origin Marker */}
+                      {/* Bakery Marker */}
                       <AdvancedMarker
                         position={{ lat: BAKERY_COORDS[0], lng: BAKERY_COORDS[1] }}
-                        title="Sweet Bliss Artisan Bakery"
+                        title="Sweet Bliss Artisan Bakery • Chandapura, Bangalore"
                       >
-                        <div className="flex flex-col items-center cursor-pointer group">
+                        <div className="flex flex-col items-center cursor-pointer">
                           <div className="bg-white border-2 border-[#881337] shadow-lg px-2.5 py-1 rounded-xl text-[10px] font-bold text-[#881337] flex items-center gap-1 whitespace-nowrap mb-1">
-                            <span>🎂 Sweet Bliss Bakery</span>
+                            <span>🧁 Sweet Bliss Bakery</span>
                           </div>
                           <div className="w-9 h-9 rounded-full bg-[#881337] text-white flex items-center justify-center shadow-lg border-2 border-white text-sm">
-                            🧁
+                            🎂
                           </div>
                         </div>
                       </AdvancedMarker>
 
-                      {/* 2. Customer Destination Marker */}
+                      {/* Customer Destination Marker */}
                       <AdvancedMarker
-                        position={{ lat: DESTINATION_COORDS[0], lng: DESTINATION_COORDS[1] }}
-                        title="Delivery Destination"
+                        position={{ lat: destCoords[0], lng: destCoords[1] }}
+                        title={`Destination: ${trackedOrder.customer.fullName}`}
                       >
                         <div className="flex flex-col items-center cursor-pointer">
                           <div className="bg-white border-2 border-emerald-600 shadow-lg px-2.5 py-1 rounded-xl text-[10px] font-bold text-emerald-800 flex items-center gap-1 whitespace-nowrap mb-1">
@@ -1283,27 +944,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                             <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg border-2 border-white text-sm">
                               📍
                             </div>
-                            <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-60"></div>
-                          </div>
-                        </div>
-                      </AdvancedMarker>
-
-                      {/* 3. Real-Time Moving Rider Marker */}
-                      <AdvancedMarker
-                        position={currentRiderLatLng}
-                        title="Delivery Partner: Rahul Sharma"
-                        zIndex={100}
-                      >
-                        <div className="flex flex-col items-center cursor-pointer">
-                          <div className="bg-stone-900 text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-xl border border-white/40 whitespace-nowrap mb-1 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            <span>Rahul (32 km/h)</span>
-                          </div>
-                          <div className="relative flex items-center justify-center">
-                            <div className="w-11 h-11 rounded-full bg-[#BE123C] text-white flex items-center justify-center shadow-2xl border-3 border-white text-lg">
-                              🛵
-                            </div>
-                            <div className="absolute -inset-2 rounded-full border-2 border-rose-500/50 animate-ping pointer-events-none"></div>
+                            <div className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-60 pointer-events-none" />
                           </div>
                         </div>
                       </AdvancedMarker>
@@ -1318,159 +959,47 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                   <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="font-semibold text-stone-800">
-                      Rider: <strong>Rahul</strong> (32 km/h)
+                      Destination: <strong>{trackedOrder.customer.city} ({trackedOrder.customer.pincode})</strong>
                     </span>
                   </div>
                   <span className="text-stone-300">|</span>
                   <div className="flex items-center gap-1 text-stone-600">
-                    <Compass className="w-3.5 h-3.5 text-[#881337]" />
-                    <span>Heading: South-West</span>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Refrigerated Box Transport</span>
                   </div>
-                  <span className="text-stone-300 hidden sm:inline">|</span>
-                  <div className="hidden sm:flex items-center gap-1 text-stone-600">
-                    <Thermometer className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Carrier Temp: 4.2°C</span>
-                  </div>
-                </div>
-
-                {/* Floating Live Telemetry Badge (Top Right) */}
-                <div className="absolute top-4 right-4 z-20 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-stone-200 shadow-md text-[11px] font-medium text-stone-700 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Cake Shock Suspension Active</span>
                 </div>
               </div>
             </div>
 
-            {/* ================= 3. RIDER PROFILE & INTERACTION CARD ================= */}
-            <div className="bg-white rounded-3xl p-6 border border-rose-100 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                {/* Rider Info */}
-                <div className="flex items-center gap-4">
-                  <div className="relative">
-                    <img
-                      src={DEFAULT_RIDER.avatar}
-                      alt={DEFAULT_RIDER.name}
-                      className="w-16 h-16 rounded-2xl object-cover border-2 border-rose-200 shadow-sm"
-                    />
-                    <div className="absolute -bottom-1 -right-1 bg-emerald-500 text-white rounded-full p-1 border-2 border-white shadow-xs">
-                      <Check className="w-3 h-3 stroke-[3]" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-bold text-stone-900 text-base sm:text-lg">
-                        {DEFAULT_RIDER.name}
-                      </h4>
-                      <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-lg text-xs font-bold flex items-center gap-1">
-                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                        {DEFAULT_RIDER.rating}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-stone-500 mt-0.5">
-                      {DEFAULT_RIDER.totalDeliveries}+ safe cake deliveries completed
-                    </p>
-
-                    <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-stone-600">
-                      <span className="flex items-center gap-1">
-                        <Bike className="w-3.5 h-3.5 text-[#881337]" />
-                        {DEFAULT_RIDER.vehicleNumber}
-                      </span>
-                      <span className="text-stone-300">•</span>
-                      <span className="text-emerald-700 font-medium flex items-center gap-1">
-                        <Thermometer className="w-3.5 h-3.5" />
-                        Temp Checked (98.4°F)
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Communication Action Buttons */}
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShowCallModal(true)}
-                    className="flex-1 sm:flex-none px-4 py-3 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
-                  >
-                    <Phone className="w-4 h-4 text-emerald-600" />
-                    <span>Call Rahul</span>
-                  </button>
-
-                  <button
-                    onClick={() => setShowChatModal(true)}
-                    className="flex-1 sm:flex-none px-5 py-3 rounded-2xl bg-[#881337] hover:bg-[#9F1239] text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md shadow-rose-950/10 cursor-pointer"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    <span>Message (Delivery Note)</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Delivery Tip Section */}
-              <div className="mt-6 pt-6 border-t border-stone-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h5 className="font-bold text-stone-900 text-xs sm:text-sm">
-                    Show your appreciation with a delivery tip
-                  </h5>
-                  <p className="text-stone-500 text-xs">
-                    100% of your tip goes directly to Rahul for handling delicate celebration cakes.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {[20, 30, 50, 100].map((amt) => (
-                    <button
-                      key={amt}
-                      onClick={() => {
-                        setSelectedTip(amt);
-                        setTipSuccess(true);
-                        setTimeout(() => setTipSuccess(false), 2500);
-                      }}
-                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                        selectedTip === amt
-                          ? 'bg-[#881337] border-[#881337] text-white shadow-xs'
-                          : 'border-stone-200 bg-stone-50 hover:bg-rose-50 hover:border-rose-200 text-stone-700'
-                      }`}
-                    >
-                      ₹{amt}
-                    </button>
-                  ))}
-                  {tipSuccess && (
-                    <span className="text-xs text-emerald-600 font-semibold animate-pulse">
-                      Tip Added! ❤️
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* ================= 4. DETAILED 6-STAGE MILESTONE TIMELINE ================= */}
-            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-rose-100 shadow-sm">
-              <h3 className="font-serif text-xl font-bold text-stone-900 mb-6 flex items-center gap-2">
-                <span>Celebration Progress Tracker</span>
-                <span className="text-xs font-sans font-normal text-stone-500">
-                  (Stage {currentStageIdx + 1} of 6)
+            {/* ================= 3. DETAILED 6-STAGE MILESTONE TIMELINE ================= */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-rose-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between">
+                <h3 className="font-serif text-xl font-bold text-stone-900 flex items-center gap-2">
+                  <span>Celebration Progress Tracker</span>
+                  <span className="text-xs font-sans font-normal text-stone-500">
+                    (Current Stage: {trackedOrder.status})
+                  </span>
+                </h3>
+                <span className="text-xs font-semibold text-rose-800 bg-rose-50 px-3 py-1 rounded-full border border-rose-200">
+                  {trackedOrder.deliveryDate} ({trackedOrder.deliverySlot.toUpperCase()} Slot)
                 </span>
-              </h3>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4 relative">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3">
                 {TRACKING_STAGES.map((stage, idx) => {
                   const Icon = stage.icon;
                   const isDone = idx < currentStageIdx;
                   const isCurrent = idx === currentStageIdx;
-                  const isPending = idx > currentStageIdx;
 
                   return (
                     <div
                       key={stage.key}
-                      onClick={() => handleAdvanceStage(stage.key)}
-                      title={`Click to set stage to: ${stage.label}`}
-                      className={`relative rounded-2xl p-4 transition-all border cursor-pointer ${
+                      className={`rounded-2xl p-4 transition-all border ${
                         isCurrent
                           ? 'bg-rose-50/80 border-[#881337] shadow-sm ring-2 ring-rose-200'
                           : isDone
-                          ? 'bg-stone-50/70 border-stone-200 hover:border-rose-200'
-                          : 'bg-stone-50/40 border-stone-100 opacity-60 hover:opacity-100'
+                          ? 'bg-stone-50/70 border-stone-200'
+                          : 'bg-stone-50/40 border-stone-100 opacity-60'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-3">
@@ -1516,9 +1045,39 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                   );
                 })}
               </div>
+
+              {/* Real Status History Log from Database */}
+              {trackedOrder.statusHistory && trackedOrder.statusHistory.length > 0 && (
+                <div className="pt-4 border-t border-stone-100 space-y-2.5">
+                  <h5 className="font-bold text-xs uppercase tracking-wider text-stone-600 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#881337]" />
+                    <span>Kitchen & Delivery Activity Log</span>
+                  </h5>
+                  <div className="space-y-2">
+                    {trackedOrder.statusHistory.map((sh, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-stone-50/80 rounded-xl p-3 border border-stone-200/60 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-stone-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-[#881337]" />
+                          <strong className="text-stone-900">{sh.status}</strong>
+                          {sh.note && <span className="text-stone-600">— {sh.note}</span>}
+                        </div>
+                        <span className="text-[11px] text-stone-400 font-mono">
+                          {new Date(sh.timestamp).toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* ================= 5. COLLAPSIBLE ORDER RECEIPT & DETAILS ================= */}
+            {/* ================= 4. REAL ORDER RECEIPT & DETAILS ================= */}
             <div className="bg-white rounded-3xl border border-rose-100 shadow-sm overflow-hidden">
               <div
                 role="button"
@@ -1566,7 +1125,8 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                       </div>
                     </div>
                     <p className="text-xs text-stone-500">
-                      {trackedOrder.items.length} celebration items • Total ₹{trackedOrder.total}
+                      {trackedOrder.items.length} celebration item{trackedOrder.items.length > 1 ? 's' : ''} • Total ₹
+                      {trackedOrder.total} ({trackedOrder.paymentStatus})
                     </p>
                   </div>
                 </div>
@@ -1593,7 +1153,7 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                     <div className="divide-y divide-stone-100 bg-white rounded-2xl border border-stone-200 overflow-hidden">
                       {trackedOrder.items.map((item, i) => {
                         const productMatch = PRODUCTS.find((p) => p.id === item.productId);
-                        const itemImg = productMatch?.image || 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=120&auto=format&fit=crop&q=80';
+                        const itemImg = productMatch?.image || '/src/assets/images/featured_chocolate_truffle_1791733075545.jpg';
                         return (
                           <div key={i} className="p-4 flex items-center justify-between gap-4">
                             <div className="flex items-center gap-3">
@@ -1605,14 +1165,24 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                               <div>
                                 <h6 className="font-bold text-sm text-stone-900">{item.name}</h6>
                                 <div className="flex flex-wrap gap-2 text-xs text-stone-500 mt-0.5">
-                                  <span>Weight: {item.weightKg} kg</span>
+                                  <span>{item.weightKg} kg</span>
                                   <span>•</span>
                                   <span>Qty: {item.quantity}</span>
+                                  <span>•</span>
+                                  <span className="text-emerald-700 font-medium">
+                                    {item.isEggless ? '100% Eggless' : 'Regular'}
+                                  </span>
+                                  {item.flavour && (
+                                    <>
+                                      <span>•</span>
+                                      <span>Flavour: {item.flavour}</span>
+                                    </>
+                                  )}
                                   {item.cakeMessage && (
                                     <>
                                       <span>•</span>
-                                      <span className="italic text-rose-700">
-                                        "{item.cakeMessage}"
+                                      <span className="italic text-rose-700 font-medium">
+                                        Piping: "{item.cakeMessage}"
                                       </span>
                                     </>
                                   )}
@@ -1640,7 +1210,18 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                       <p className="text-stone-500">
                         {trackedOrder.customer.city}, {trackedOrder.customer.pincode}
                       </p>
-                      <p className="text-stone-500">Phone: {trackedOrder.customer.phone}</p>
+                      {trackedOrder.customer.landmark && (
+                        <p className="text-stone-500">Landmark: {trackedOrder.customer.landmark}</p>
+                      )}
+                      <p className="text-stone-500">Phone: +91 {trackedOrder.customer.phone}</p>
+                      {trackedOrder.customer.email && (
+                        <p className="text-stone-500">Email: {trackedOrder.customer.email}</p>
+                      )}
+                      {trackedOrder.orderNotes && (
+                        <p className="text-amber-800 font-medium pt-1">
+                          Kitchen Note: {trackedOrder.orderNotes}
+                        </p>
+                      )}
                     </div>
 
                     <div className="bg-white p-4 rounded-2xl border border-stone-200 space-y-1.5 text-xs">
@@ -1650,235 +1231,67 @@ export const TrackOrderPage: React.FC<TrackOrderPageProps> = ({ initialOrderId, 
                       </div>
                       <div className="flex justify-between py-1 border-b border-stone-100">
                         <span className="text-stone-500">Payment Status:</span>
-                        <span className="font-bold text-emerald-700 uppercase">
+                        <span
+                          className={`font-bold uppercase ${
+                            trackedOrder.paymentStatus === 'PAID'
+                              ? 'text-emerald-700'
+                              : 'text-amber-700'
+                          }`}
+                        >
                           {trackedOrder.paymentStatus}
                         </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-stone-100">
                         <span className="text-stone-500">Method:</span>
                         <span className="font-bold text-stone-800">
-                          {trackedOrder.paymentMethod === 'razorpay'
-                            ? 'Razorpay / UPI Online'
-                            : 'Cash on Delivery'}
+                          {trackedOrder.paymentMethod}
                         </span>
                       </div>
+                      <div className="flex justify-between py-1 border-b border-stone-100">
+                        <span className="text-stone-500">Delivery Fee:</span>
+                        <span className="font-semibold text-emerald-700">FREE</span>
+                      </div>
                       <div className="flex justify-between pt-1">
-                        <span className="text-stone-500 font-bold">Total Paid:</span>
+                        <span className="text-stone-500 font-bold">Total Amount:</span>
                         <span className="font-extrabold text-[#881337] text-sm">
                           ₹{trackedOrder.total}
                         </span>
                       </div>
                     </div>
                   </div>
+
+                  {/* WhatsApp & Call Direct Bakery CTA */}
+                  <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                    <a
+                      href={`https://wa.me/${BUSINESS_CONFIG.whatsappNumber}?text=${encodeURIComponent(
+                        `Hi Chef Jyoti, I am inquiring about my Sweet Bliss order ${trackedOrder.orderId} (${trackedOrder.items.map((i) => i.name).join(', ')}). Could you provide a live kitchen update?`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-stone-900 font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span>WhatsApp Chef Jyoti (+91 {BUSINESS_CONFIG.phone})</span>
+                    </a>
+
+                    <a
+                      href={`tel:+91${BUSINESS_CONFIG.phone}`}
+                      className="py-3 px-5 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-800 font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Phone className="w-4 h-4 text-emerald-600" />
+                      <span>Call Bakery Desk</span>
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => onNavigate('shop')}
+                      className="py-3 px-5 rounded-xl border border-rose-200 hover:bg-rose-50 text-[#881337] font-semibold text-xs transition-colors cursor-pointer"
+                    >
+                      Browse More Cakes
+                    </button>
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-
-
-        {/* ================= MODAL: CALL RIDER SIMULATION ================= */}
-        {showCallModal && (
-          <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-stone-900 text-white rounded-3xl max-w-sm w-full p-6 text-center space-y-6 shadow-2xl border border-stone-700 animate-in fade-in zoom-in-95">
-              <div className="relative mx-auto w-24 h-24">
-                <img
-                  src={DEFAULT_RIDER.avatar}
-                  alt={DEFAULT_RIDER.name}
-                  className="w-full h-full rounded-full object-cover border-4 border-rose-500 shadow-xl"
-                />
-                {callState === 'ringing' && (
-                  <div className="absolute inset-0 rounded-full border-4 border-emerald-400 animate-ping opacity-60" />
-                )}
-              </div>
-
-              <div>
-                <h3 className="font-bold text-lg">{DEFAULT_RIDER.name}</h3>
-                <p className="text-xs text-rose-300 font-mono mt-0.5">{DEFAULT_RIDER.phone}</p>
-                <div className="mt-2 text-xs font-semibold text-emerald-400">
-                  {callState === 'ringing' ? (
-                    <span className="animate-pulse">Calling Delivery Partner... 📞</span>
-                  ) : (
-                    <span>
-                      Connected ({Math.floor(callSeconds / 60)}:{(callSeconds % 60).toString().padStart(2, '0')})
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-stone-800/80 rounded-2xl p-3 text-xs text-stone-300 text-left space-y-1">
-                <p className="font-semibold text-stone-200">Rahul says:</p>
-                <p className="italic">
-                  "Hello sir! I am crossing Nagarjuna Circle right now. Cake carrier is kept 100% horizontal and refrigerated. Arriving in ~12 mins!"
-                </p>
-              </div>
-
-              <div className="flex items-center justify-center gap-4">
-                <button
-                  onClick={() => setShowCallModal(false)}
-                  className="w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-lg transition-transform hover:scale-105 cursor-pointer"
-                >
-                  <Phone className="w-6 h-6 rotate-[135deg]" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ================= MODAL: CHAT WITH RIDER ================= */}
-        {showChatModal && (
-          <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-md w-full flex flex-col h-[520px] shadow-2xl border border-rose-100 overflow-hidden animate-in fade-in zoom-in-95">
-              {/* Chat Header */}
-              <div className="p-4 bg-[#881337] text-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={DEFAULT_RIDER.avatar}
-                    alt={DEFAULT_RIDER.name}
-                    className="w-10 h-10 rounded-full object-cover border-2 border-white/40"
-                  />
-                  <div>
-                    <h4 className="font-bold text-sm">{DEFAULT_RIDER.name}</h4>
-                    <span className="text-[11px] text-rose-200 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Active on Scooter (Handsfree)
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowChatModal(false)}
-                  className="p-1.5 rounded-full hover:bg-white/10 text-white cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {/* Chat Messages */}
-              <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-stone-50/50">
-                {chatMessages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex flex-col ${
-                      msg.sender === 'user' ? 'items-end' : 'items-start'
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[82%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
-                        msg.sender === 'user'
-                          ? 'bg-[#881337] text-white rounded-br-xs shadow-xs'
-                          : 'bg-white text-stone-800 border border-stone-200 shadow-2xs rounded-bl-xs'
-                      }`}
-                    >
-                      {msg.text}
-                    </div>
-                    <span className="text-[10px] text-stone-400 mt-1 px-1">{msg.time}</span>
-                  </div>
-                ))}
-
-                {/* Live Typing Indicator */}
-                {isRiderTyping && (
-                  <div className="flex flex-col items-start animate-in fade-in duration-200">
-                    <div className="bg-white text-stone-600 border border-rose-100 px-3.5 py-2 rounded-2xl rounded-bl-xs text-xs flex items-center gap-2 shadow-2xs">
-                      <span className="text-[11px] font-medium text-rose-800">राहुल लिख रहे हैं...</span>
-                      <span className="flex gap-1 items-center">
-                        <span className="w-1.5 h-1.5 bg-[#881337] rounded-full animate-bounce [animation-delay:-0.3s]" />
-                        <span className="w-1.5 h-1.5 bg-[#881337] rounded-full animate-bounce [animation-delay:-0.15s]" />
-                        <span className="w-1.5 h-1.5 bg-[#881337] rounded-full animate-bounce" />
-                      </span>
-                    </div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              {/* Quick Preset Buttons (Hindi & English) */}
-              <div className="p-2.5 border-t border-stone-100 bg-white flex gap-2 overflow-x-auto text-[11px] no-scrollbar">
-                <button
-                  type="button"
-                  onClick={() => handleSendChat('हाय')}
-                  className="px-2.5 py-1 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 whitespace-nowrap cursor-pointer font-medium transition-colors"
-                >
-                  👋 हाय / Hi
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendChat('डिलीवरी टाइम क्या है? कब तक आओगे?')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
-                >
-                  ⏰ डिलीवरी टाइम?
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendChat('आपकी लोकेशन कहाँ है?')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
-                >
-                  📍 लोकेशन कहाँ है?
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendChat('क्या केक सेफ है?')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
-                >
-                  🎂 क्या केक सेफ है?
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendChat('डोरबेल मत बजाना, बच्चे सो रहे हैं।')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
-                >
-                  🤫 डोरबेल मत बजाना
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendChat('केक अपार्टमेंट के सिक्योरिटी गार्ड को दे दीजिए।')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
-                >
-                  🛡️ गार्ड को दे दो
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendChat('पहुँचते ही मुझे कॉल करना।')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
-                >
-                  📞 पहुँचकर कॉल करना
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendChat('मैं डिलीवरी पर UPI QR से पेमेंट करूँगा।')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
-                >
-                  💵 UPI से पे करूँगा
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSendChat('थैंक यू राहुल जी!')}
-                  className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 whitespace-nowrap cursor-pointer transition-colors"
-                >
-                  🙏 थैंक यू
-                </button>
-              </div>
-
-              {/* Chat Input */}
-              <div className="p-3 bg-white border-t border-stone-100 flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="मैसेज लिखें (उदा. हाय, डिलीवरी टाइम, लोकेशन)..."
-                  value={inputChatText}
-                  onChange={(e) => setInputChatText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleSendChat();
-                  }}
-                  className="flex-1 text-xs px-3.5 py-2.5 rounded-xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-[#881337] bg-stone-50"
-                />
-                <button
-                  onClick={() => handleSendChat()}
-                  disabled={isRiderTyping || !inputChatText.trim()}
-                  className="p-2.5 rounded-xl bg-[#881337] hover:bg-[#9F1239] disabled:opacity-50 text-white transition-colors cursor-pointer"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </div>
             </div>
           </div>
         )}
