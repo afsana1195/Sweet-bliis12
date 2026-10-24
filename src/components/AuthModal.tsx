@@ -163,16 +163,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       <div className="relative bg-white rounded-3xl max-w-md w-full p-5 sm:p-7 shadow-2xl border border-rose-100 max-h-[92vh] overflow-y-auto space-y-4 animate-in fade-in zoom-in-95 duration-150">
         {/* Header with Close Button */}
         <div className="flex items-center justify-between pb-3 border-b border-rose-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-full bg-rose-100 text-[#881337] flex items-center justify-center shadow-xs">
-              <Sparkles className="w-5 h-5 text-[#9F1239]" />
-            </div>
+          <div className="flex items-center gap-3">
+            <img
+              src="/assets/aistudio/file_0000000061b481f4ab617a424b614604_7c5ac529.png"
+              alt="Sweet Bliss Logo"
+              className="w-11 h-11 rounded-full border border-rose-200 bg-white object-contain p-0.5 shadow-xs shrink-0"
+            />
             <div>
               <h3 className="font-serif text-lg sm:text-xl font-bold text-[#881337] leading-tight">
                 {mode === 'login' ? 'Customer Sign In' : 'Create Customer Account'}
               </h3>
               <p className="text-[11px] sm:text-xs text-stone-500">
-                Sweet Bliss Artisan Bakery • Hyderabad
+                Sweet Bliss Artisan Bakery • Bangalore
               </p>
             </div>
           </div>

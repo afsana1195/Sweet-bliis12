@@ -1,5 +1,18 @@
 [
   {
+    "id": "user_1792828715412_7010",
+    "name": "Aarav Patel",
+    "email": "audit_1792828715328@testbakery.com",
+    "phone": "9845715328",
+    "passwordHash": "$2b$10$UYCcuf2Gh3lsMX3URYTd/.HhUCJZfsKSlXG1ZxNN4VSmR4Zqojgka",
+    "address": "12 Rosewood Villas",
+    "city": "Bangalore",
+    "pincode": "562162",
+    "memberTier": "Bronze",
+    "loyaltyPoints": 100,
+    "createdAt": "2026-10-24T07:58:35.412Z"
+  },
+  {
     "id": "user_1792674562877_8761",
     "name": "Aarav Patel",
     "email": "audit_1792674562814@testbakery.com",
@@ -165,7 +178,7 @@
     "city": "Bangalore",
     "pincode": "562162",
     "memberTier": "VIP",
-    "loyaltyPoints": 2027,
+    "loyaltyPoints": 2121,
     "createdAt": "2026-10-15T22:26:28.754Z"
   }
 ]

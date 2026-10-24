@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Lock,
   Search,
@@ -29,6 +29,9 @@ import {
   X,
   UserCheck,
   Wheat,
+  Calendar,
+  TrendingUp,
+  ArrowUpRight,
 } from 'lucide-react';
 import { PlacedOrder, PageRoute } from '../types.ts';
 import { AdminPerformanceDashboard } from './AdminPerformanceDashboard.tsx';
@@ -83,6 +86,101 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate, onMe
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [filterTodayOnly, setFilterTodayOnly] = useState<boolean>(false);
+
+  // Helper to safely extract YYYY-MM-DD
+  const getOrderYMD = (dateStr?: string) => {
+    if (!dateStr) return '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+      return dateStr.slice(0, 10);
+    }
+    try {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      }
+    } catch {
+      // ignore
+    }
+    return '';
+  };
+
+  // Determine if order matches current calendar day (delivery date or order creation date)
+  const isTodayOrder = (order: PlacedOrder) => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayYMD = `${year}-${month}-${day}`;
+    const todayIso = now.toISOString().split('T')[0];
+
+    const deliveryYMD = getOrderYMD(order.deliveryDate);
+    const createdYMD = getOrderYMD(order.createdAt);
+    return (
+      deliveryYMD === todayYMD ||
+      deliveryYMD === todayIso ||
+      createdYMD === todayYMD ||
+      createdYMD === todayIso
+    );
+  };
+
+  // Today's Analytics calculations based on the orders list
+  const todayAnalytics = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayYMD = `${year}-${month}-${day}`;
+
+    const todayOrders = orders.filter(isTodayOrder);
+    const totalOrders = todayOrders.length;
+
+    // Pending deliveries: today's orders not yet delivered and not cancelled
+    const pendingDeliveries = todayOrders.filter(
+      (o) => o.status !== 'Delivered' && o.status !== 'Cancelled'
+    ).length;
+
+    // Estimated revenue: sum of total for today's active orders (excluding cancelled)
+    const estimatedRevenue = todayOrders
+      .filter((o) => o.status !== 'Cancelled')
+      .reduce((sum, o) => sum + (o.total || 0), 0);
+
+    const deliveredCount = todayOrders.filter((o) => o.status === 'Delivered').length;
+    const preparingCount = todayOrders.filter(
+      (o) =>
+        o.status === 'Preparing Your Order' ||
+        o.status === 'Order Confirmed' ||
+        o.status === 'Order Placed'
+    ).length;
+    const outForDeliveryCount = todayOrders.filter((o) => o.status === 'Out for Delivery').length;
+
+    const formattedDate = now.toLocaleDateString('en-IN', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+
+    return {
+      todayYMD,
+      formattedDate,
+      todayOrders,
+      totalOrders,
+      pendingDeliveries,
+      estimatedRevenue,
+      deliveredCount,
+      preparingCount,
+      outForDeliveryCount,
+    };
+  }, [orders]);
+
+  // Queue orders filtered by today when filterTodayOnly is active
+  const displayedOrders = useMemo(() => {
+    if (filterTodayOnly) {
+      return orders.filter(isTodayOrder);
+    }
+    return orders;
+  }, [orders, filterTodayOnly]);
 
   const getHeaders = (token: string) => {
     return {
@@ -264,15 +362,22 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate, onMe
     return (
       <div className="bg-[#FFF9F9] min-h-screen py-16 flex items-center justify-center p-4">
         <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-rose-100 shadow-xl space-y-6">
-          <div className="w-14 h-14 rounded-2xl bg-rose-100 text-[#881337] flex items-center justify-center mx-auto">
-            <Lock className="w-7 h-7" />
-          </div>
+          <div className="flex flex-col items-center justify-center text-center">
+            <div className="relative mb-3">
+              <img
+                src="/assets/aistudio/file_0000000061b481f4ab617a424b614604_7c5ac529.png"
+                alt="Sweet Bliss Bakery Logo"
+                className="w-20 h-20 rounded-full border border-rose-200 bg-white p-1 shadow-md object-contain"
+              />
+              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#881337] text-white flex items-center justify-center shadow-xs">
+                <Lock className="w-3.5 h-3.5" />
+              </div>
+            </div>
 
-          <div className="text-center space-y-1">
             <h2 className="font-serif text-2xl font-bold text-[#881337]">
               Bakery Manager Portal
             </h2>
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-stone-500 mt-1">
               Authorized admin access to orders, kitchen dispatch, and inventory control.
             </p>
           </div>
@@ -410,22 +515,29 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate, onMe
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b border-rose-100 gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#9F1239]">
-                Bakery Control Center
-              </span>
-              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                <UserCheck className="w-3 h-3" />
-                <span>{adminProfile?.username || 'SuperAdmin'}</span>
-              </span>
+          <div className="flex items-center gap-3.5">
+            <img
+              src="/assets/aistudio/file_0000000061b481f4ab617a424b614604_7c5ac529.png"
+              alt="Sweet Bliss Bakery"
+              className="w-13 h-13 rounded-full border border-rose-200 bg-white object-contain p-0.5 shadow-xs shrink-0"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-[#9F1239]">
+                  Bakery Control Center
+                </span>
+                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <UserCheck className="w-3 h-3" />
+                  <span>{adminProfile?.username || 'SuperAdmin'}</span>
+                </span>
+              </div>
+              <h1 className="font-serif text-3xl font-bold text-[#881337]">
+                Kitchen Order Management
+              </h1>
+              <p className="text-xs text-stone-600 mt-0.5">
+                Advance baking stages, track payments, inspect real customer orders, and manage live inventory.
+              </p>
             </div>
-            <h1 className="font-serif text-3xl font-bold text-[#881337]">
-              Kitchen Order Management
-            </h1>
-            <p className="text-xs text-stone-600 mt-0.5">
-              Advance baking stages, track payments, inspect real customer orders, and manage live inventory.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
@@ -474,7 +586,198 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate, onMe
           </div>
         )}
 
-        {/* View Switcher: 4 Tabs */}
+        {/* ================= TODAY'S ANALYTICS WIDGET ================= */}
+        <div className="bg-gradient-to-br from-white via-[#FFF8F8] to-[#FDF2F4] rounded-3xl p-5 sm:p-6 border border-rose-200/80 shadow-xs relative overflow-hidden">
+          {/* Subtle ambient lighting */}
+          <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-rose-200/30 blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-amber-200/20 blur-2xl pointer-events-none" />
+
+          {/* Widget Header */}
+          <div className="relative flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-rose-100 gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#881337] to-[#BE185D] text-white flex items-center justify-center shadow-xs shrink-0">
+                <Sparkles className="w-5 h-5 text-rose-200" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-serif text-lg sm:text-xl font-bold text-[#881337]">
+                    Today's Analytics
+                  </h2>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Live Metrics
+                  </span>
+                </div>
+                <p className="text-xs text-stone-500 flex flex-wrap items-center gap-1.5 mt-0.5">
+                  <span className="inline-flex items-center gap-1 text-[#881337] font-semibold">
+                    <Calendar className="w-3.5 h-3.5 text-rose-500" />
+                    <span>{todayAnalytics.formattedDate}</span>
+                  </span>
+                  <span className="text-stone-300 hidden sm:inline">•</span>
+                  <span>Calculated from active orders list for current day</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Action */}
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterTodayOnly((prev) => !prev);
+                  setAdminView('queue');
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                  filterTodayOnly
+                    ? 'bg-[#881337] text-white'
+                    : 'bg-white hover:bg-rose-50 text-[#881337] border border-rose-200'
+                }`}
+                title="Filter kitchen order queue to today's deliveries"
+              >
+                <ListOrdered className="w-3.5 h-3.5" />
+                <span>{filterTodayOnly ? 'Showing Today in Queue' : "Filter Queue to Today's Orders"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Core 3 Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 relative">
+            {/* Card 1: Total Orders */}
+            <div
+              onClick={() => {
+                setFilterTodayOnly(true);
+                setAdminView('queue');
+              }}
+              className="group bg-white rounded-2xl p-4 border border-rose-100 hover:border-rose-300 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden"
+              title="Click to view today's orders in kitchen queue"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-stone-500 block uppercase tracking-wider">
+                    Total Orders
+                  </span>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <span className="font-serif text-3xl font-extrabold text-[#881337] tabular-nums">
+                      {todayAnalytics.totalOrders}
+                    </span>
+                    <span className="text-xs text-stone-500 font-medium">today</span>
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-rose-50 group-hover:bg-[#881337] text-[#881337] group-hover:text-white flex items-center justify-center transition-colors">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-rose-50 flex items-center justify-between text-xs">
+                <span className="text-stone-500">
+                  {todayAnalytics.totalOrders > 0
+                    ? `${todayAnalytics.totalOrders} order${todayAnalytics.totalOrders > 1 ? 's' : ''} for ${todayAnalytics.todayYMD}`
+                    : 'No orders logged for today yet'}
+                </span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-stone-400 group-hover:text-[#881337] transition-colors" />
+              </div>
+            </div>
+
+            {/* Card 2: Pending Deliveries */}
+            <div
+              onClick={() => {
+                setFilterTodayOnly(true);
+                setAdminView('queue');
+              }}
+              className="group bg-white rounded-2xl p-4 border border-amber-100 hover:border-amber-300 shadow-2xs hover:shadow-xs transition-all cursor-pointer relative overflow-hidden"
+              title="Click to inspect pending deliveries in kitchen queue"
+            >
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-stone-500 block uppercase tracking-wider">
+                    Pending Deliveries
+                  </span>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <span className="font-serif text-3xl font-extrabold text-amber-700 tabular-nums">
+                      {todayAnalytics.pendingDeliveries}
+                    </span>
+                    <span className="text-xs text-stone-500 font-medium">pending</span>
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-amber-50 group-hover:bg-amber-600 text-amber-700 group-hover:text-white flex items-center justify-center transition-colors">
+                  <Truck className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-amber-50 flex items-center justify-between text-xs">
+                <span className="text-stone-500">
+                  {todayAnalytics.pendingDeliveries > 0
+                    ? `${todayAnalytics.preparingCount} baking/confirmed • ${todayAnalytics.outForDeliveryCount} out on road`
+                    : todayAnalytics.totalOrders > 0
+                    ? 'All today deliveries fulfilled! 🎉'
+                    : 'No deliveries awaiting fulfillment'}
+                </span>
+                <ArrowUpRight className="w-3.5 h-3.5 text-stone-400 group-hover:text-amber-700 transition-colors" />
+              </div>
+            </div>
+
+            {/* Card 3: Estimated Revenue */}
+            <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-2xs relative overflow-hidden">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-xs font-semibold text-stone-500 block uppercase tracking-wider">
+                    Estimated Revenue
+                  </span>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="font-serif text-3xl font-extrabold text-emerald-800 tabular-nums">
+                      ₹{todayAnalytics.estimatedRevenue.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-3 pt-3 border-t border-emerald-50 flex items-center justify-between text-xs">
+                <span className="text-stone-500">
+                  {todayAnalytics.estimatedRevenue > 0
+                    ? 'Gross value of active orders for today'
+                    : 'Real-time revenue updates upon checkout'}
+                </span>
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  INR (₹)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Today's Pipeline Status Bar */}
+          <div className="mt-4 pt-3.5 border-t border-rose-100 flex flex-wrap items-center justify-between gap-3 text-xs text-stone-600">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-semibold text-stone-700">Today's Pipeline:</span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 text-[#881337] font-semibold border border-rose-200">
+                <ChefHat className="w-3 h-3" />
+                <span>{todayAnalytics.preparingCount} in Kitchen / Baking</span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 font-semibold border border-amber-200">
+                <Truck className="w-3 h-3" />
+                <span>{todayAnalytics.outForDeliveryCount} Out for Delivery</span>
+              </span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-semibold border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>{todayAnalytics.deliveredCount} Delivered</span>
+              </span>
+            </div>
+
+            {filterTodayOnly && (
+              <div className="flex items-center gap-1.5 text-xs text-[#881337]">
+                <span className="font-semibold">Queue filtered to today</span>
+                <button
+                  type="button"
+                  onClick={() => setFilterTodayOnly(false)}
+                  className="text-[11px] underline font-bold cursor-pointer hover:text-[#9F1239]"
+                >
+                  Show All ({orders.length})
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* View Switcher: Tabs */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-rose-100 shadow-2xs">
             <button
@@ -497,7 +800,7 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate, onMe
               }`}
             >
               <ListOrdered className="w-4 h-4" />
-              <span>Kitchen Queue ({orders.length})</span>
+              <span>Kitchen Queue ({filterTodayOnly ? `${displayedOrders.length} Today` : orders.length})</span>
             </button>
             <button
               onClick={() => setAdminView('menu')}
@@ -642,17 +945,49 @@ export const AdminOrderPage: React.FC<AdminOrderPageProps> = ({ onNavigate, onMe
             </div>
 
             {/* Main Orders Table / Cards */}
-            {orders.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-3xl border border-rose-100 p-8 space-y-2">
+            {displayedOrders.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-3xl border border-rose-100 p-8 space-y-3">
                 <Package className="w-10 h-10 text-stone-300 mx-auto" />
-                <h3 className="font-bold text-stone-800 text-sm">No orders matching filter</h3>
-                <p className="text-xs text-stone-500">Try changing status filter, sort order, or search query.</p>
+                <h3 className="font-bold text-stone-800 text-sm">
+                  {filterTodayOnly ? "No orders found for today" : "No orders matching filter"}
+                </h3>
+                <p className="text-xs text-stone-500 max-w-sm mx-auto">
+                  {filterTodayOnly
+                    ? `No deliveries scheduled or booked for ${todayAnalytics.formattedDate}. New checkout orders will automatically appear here.`
+                    : "Try changing status filter, sort order, or search query."}
+                </p>
+                {filterTodayOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterTodayOnly(false)}
+                    className="px-4 py-2 rounded-xl bg-[#881337] hover:bg-[#9F1239] text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
+                  >
+                    View All Orders ({orders.length})
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Orders List (7 cols) */}
                 <div className="lg:col-span-7 space-y-3">
-                  {orders.map((ord) => {
+                  {filterTodayOnly && (
+                    <div className="p-3 rounded-2xl bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 text-xs text-[#881337] flex items-center justify-between font-medium shadow-2xs">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-rose-600" />
+                        <span>
+                          Showing <strong>{displayedOrders.length}</strong> orders scheduled/placed for today (<strong>{todayAnalytics.todayYMD}</strong>)
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFilterTodayOnly(false)}
+                        className="text-[11px] font-bold underline cursor-pointer hover:text-[#9F1239]"
+                      >
+                        Show All ({orders.length})
+                      </button>
+                    </div>
+                  )}
+                  {displayedOrders.map((ord) => {
                     const isSelected = selectedOrder?.orderId === ord.orderId;
                     return (
                       <div

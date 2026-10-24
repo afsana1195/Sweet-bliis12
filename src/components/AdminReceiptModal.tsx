@@ -182,20 +182,27 @@ export const AdminReceiptModal: React.FC<AdminReceiptModalProps> = ({ order, isO
           >
             {/* Bakery Brand Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start pb-6 border-b-2 border-[#881337] gap-4">
-              <div>
-                <span className="text-xs uppercase tracking-widest font-bold text-[#881337]">
-                  Tax Invoice & Delivery Receipt
-                </span>
-                <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#881337] tracking-tight">
-                  Sweet Bliss
-                </h1>
-                <p className="text-xs font-medium text-stone-600 mt-0.5">
-                  Artisan Patisserie & Custom Cake Studio
-                </p>
-                <div className="text-[11px] text-stone-500 mt-2 space-y-0.5 leading-relaxed">
-                  <p>Chandapura - Anekal Road, Bangalore, Karnataka - 562162</p>
-                  <p>FSSAI: 11223334000892 • GSTIN: 29AABCS1429B1Z8</p>
-                  <p>Phone: +91 6297201943 • Email: ansariwazid1995@gmail.com</p>
+              <div className="flex items-start gap-4">
+                <img
+                  src="/assets/aistudio/file_0000000061b481f4ab617a424b614604_7c5ac529.png"
+                  alt="Sweet Bliss Official Logo"
+                  className="w-16 h-16 rounded-full border border-rose-200 object-contain bg-white p-0.5 shadow-xs shrink-0"
+                />
+                <div>
+                  <span className="text-xs uppercase tracking-widest font-bold text-[#881337]">
+                    Tax Invoice & Delivery Receipt
+                  </span>
+                  <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#881337] tracking-tight">
+                    Sweet Bliss
+                  </h1>
+                  <p className="text-xs font-medium text-stone-600 mt-0.5">
+                    Artisan Patisserie & Custom Cake Studio
+                  </p>
+                  <div className="text-[11px] text-stone-500 mt-2 space-y-0.5 leading-relaxed">
+                    <p>Chandapura - Anekal Road, Bangalore, Karnataka - 562162</p>
+                    <p>FSSAI: 11223334000892 • GSTIN: 29AABCS1429B1Z8</p>
+                    <p>Phone: +91 6297201943 • Email: ansariwazid1995@gmail.com</p>
+                  </div>
                 </div>
               </div>
 

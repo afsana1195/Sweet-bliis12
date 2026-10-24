@@ -50,8 +50,15 @@ export const OrderConfirmationPage: React.FC<OrderConfirmationPageProps> = ({
         <div className="bg-white rounded-3xl p-6 sm:p-10 border border-rose-100 shadow-xl space-y-8">
           {/* Top Success Badge */}
           <div className="text-center space-y-3">
-            <div className="w-18 h-18 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
-              <CheckCircle2 className="w-10 h-10" />
+            <div className="flex items-center justify-center gap-3">
+              <img
+                src="/assets/aistudio/file_0000000061b481f4ab617a424b614604_7c5ac529.png"
+                alt="Sweet Bliss Bakery"
+                className="w-14 h-14 rounded-full border border-rose-200 bg-white object-contain p-0.5 shadow-xs"
+              />
+              <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shadow-xs">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
             </div>
             <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-3 py-1 rounded-full">
               <Sparkles className="w-3.5 h-3.5 text-emerald-600" />

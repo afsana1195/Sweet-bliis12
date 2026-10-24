@@ -262,24 +262,18 @@ export const Footer: React.FC<FooterProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-rose-900/40">
           {/* Brand Column */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-rose-900/60 border border-rose-700/60 flex items-center justify-center text-rose-300">
-                <svg
-                  className="w-5 h-5 fill-none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M12 2a5 5 0 0 0-5 5c0 2.5 2 4.5 5 4.5s5-2 5-4.5a5 5 0 0 0-5-5z" />
-                  <path d="M12 11.5c-4.5 0-8 3-8 7.5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1c0-4.5-3.5-7.5-8-7.5z" />
-                </svg>
-              </div>
+            <div className="flex items-center gap-3.5">
+              <img
+                src="/assets/aistudio/file_0000000061b481f4ab617a424b614604_7c5ac529.png"
+                alt="Sweet Bliss Bakery Logo"
+                className="w-13 h-13 rounded-full border border-rose-500/40 object-contain bg-white p-0.5 shadow-md shrink-0"
+              />
               <div>
                 <span className="font-serif text-2xl font-bold text-white tracking-tight leading-none block">
                   Sweet Bliss
                 </span>
                 <span className="text-[10px] tracking-[0.2em] uppercase font-semibold text-rose-300/80 block mt-0.5">
-                  CAKES • PASTRIES • HAPPINESS
+                  CAKES • SWEETS • BAKERY • MORE
                 </span>
               </div>
             </div>

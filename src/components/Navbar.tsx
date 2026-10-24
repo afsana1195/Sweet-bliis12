@@ -67,24 +67,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Brand Logo */}
         <button
           onClick={() => handleNav('home')}
-          className="flex items-center gap-2 sm:gap-3 text-left group focus:outline-none min-w-0 shrink"
+          className="flex items-center gap-2.5 sm:gap-3 text-left group focus:outline-none min-w-0 shrink cursor-pointer"
         >
-          <div className="w-9 h-9 sm:w-11 sm:h-11 shrink-0 rounded-full bg-gradient-to-br from-rose-100 to-pink-200 border border-rose-300/80 flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-            <svg
-              className="w-5 h-5 sm:w-6 sm:h-6 text-[#9F1239]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 2a5 5 0 0 0-5 5c0 2.5 2 4.5 5 4.5s5-2 5-4.5a5 5 0 0 0-5-5z" />
-              <path d="M12 11.5c-4.5 0-8 3-8 7.5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1c0-4.5-3.5-7.5-8-7.5z" />
-              <path d="M12 7v2" />
-              <circle cx="12" cy="5" r="0.5" fill="currentColor" />
-            </svg>
-          </div>
+          <img
+            src="/assets/aistudio/file_0000000061b481f4ab617a424b614604_7c5ac529.png"
+            alt="Sweet Bliss Artisan Bakery Logo"
+            className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 rounded-full object-contain bg-white border border-rose-200/90 shadow-xs p-0.5 group-hover:scale-105 transition-transform"
+          />
           <div className="min-w-0">
             <span className="font-serif text-xl sm:text-2xl sm:text-[26px] font-bold text-[#881337] tracking-tight leading-none block truncate">
               Sweet Bliss

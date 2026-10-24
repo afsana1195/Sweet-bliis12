@@ -12,6 +12,13 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onNavigate }) => {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         {/* Header Hero */}
         <div className="text-center space-y-3 max-w-2xl mx-auto">
+          <div className="flex justify-center mb-1">
+            <img
+              src="/assets/aistudio/file_0000000061b481f4ab617a424b614604_7c5ac529.png"
+              alt="Sweet Bliss Artisan Bakery Logo"
+              className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border border-rose-200 bg-white object-contain p-1 shadow-md hover:scale-105 transition-transform"
+            />
+          </div>
           <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#9F1239] bg-rose-100/70 px-3 py-1 rounded-full">
             <Sparkles className="w-3.5 h-3.5 text-rose-600" />
             <span>Our Baking Philosophy</span>

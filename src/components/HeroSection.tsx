@@ -19,8 +19,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onExploreCakes }) => {
           {/* Left Column: Headline, Copy, 4 Features, CTAs */}
           <div className="lg:col-span-6 space-y-5 sm:space-y-6 text-center lg:text-left min-w-0">
             {/* Brand Kicker */}
-            <div className="inline-flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.2em] sm:tracking-[0.25em] text-[#9F1239] bg-rose-100/70 px-3 py-1 rounded-full">
-              <Sparkles className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+            <div className="inline-flex items-center gap-2 text-[11px] sm:text-xs font-semibold uppercase tracking-[0.16em] text-[#9F1239] bg-rose-100/70 pl-1.5 pr-3.5 py-1 rounded-full shadow-2xs">
+              <img
+                src="/assets/aistudio/file_0000000061b481f4ab617a424b614604_7c5ac529.png"
+                alt="Sweet Bliss Emblem"
+                className="w-5 h-5 rounded-full object-contain bg-white shrink-0 p-0.5 border border-rose-200"
+              />
               <span>Sweet Bliss Patisserie</span>
             </div>
 
